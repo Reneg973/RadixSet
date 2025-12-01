@@ -1,0 +1,19 @@
+[package]
+name = "RadixSet"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flat_map = "0.0.10"
+
+[dev-dependencies]
+criterion = "0.8.0"
+rand = "0.8.5"
+
+[[bench]]
+name = "segmented_trie_bench"
+harness = false
+
+[lib]
+name = "radixset"
+path = "src/lib.rs"
