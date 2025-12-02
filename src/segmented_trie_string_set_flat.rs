@@ -31,11 +31,9 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
         Iter::null()
     }
 
-    // Returns (iterator to leaf, true if inserted new leaf)
     pub fn insert(&mut self, key: &str) -> NodeId{
         let mut cur: *mut Node = &mut self.root;
         for seg in key.split(DELIMITER).filter(|s| !s.is_empty()) {
-            // SAFETY: cur points to a valid Node owned by the trie
             cur = unsafe { (*cur).insert_child(seg) };
         }
         let was_leaf = unsafe { (*cur).is_leaf };
@@ -152,11 +150,8 @@ impl Node {
         if seg.is_empty() {
             return self as *mut Node;
         }
-        // Check if child with this key already exists
-        for child in &self.children {
-            if child.key == seg {
-                return &**child as *const Node as *mut Node;
-            }
+        if let Some(ptr) = unsafe { self.find_child(seg) } {
+            return ptr as *mut Node;
         }
         // Create and insert new child
         let child = Self::new_child(self as *mut Node, seg);
@@ -169,12 +164,11 @@ impl Node {
         if seg.is_empty() {
             return Some(self as *const Node);
         }
-        for child in &self.children {
-            if child.key == seg {
-                return Some(&**child as *const Node);
-            }
-        }
-        None
+        // Use iterator helper to locate the child without a manual loop
+        self.children
+            .iter()
+            .find(|child| child.key == seg)
+            .map(|child| &**child as *const Node)
     }
 
     unsafe fn descend(n: *const Node) -> Option<*mut Node> {
@@ -182,21 +176,23 @@ impl Node {
             if (*n).is_leaf {
                 return Some(n as *mut Node);
             }
-            for child in (*n).children.iter() {
-                let leaf = Node::descend(&**child as *const Node);
-                if leaf.is_some() {
-                    return leaf;
-                }
-            }
+            (*n)
+                .children
+                .iter()
+                .find_map(|child| Node::descend(&**child as *const Node))
         }
-        None
     }
 
     unsafe fn increment(mut cur: *const Node) -> Option<*mut Node> {
+        // `from_child` is true when we've just climbed up from a child.
+        // When climbing up we must not immediately descend into the parent's
+        // first child (that would re-enter the subtree we came from and loop).
+        let mut from_child = false;
         loop {
             unsafe {
-                // If current node has children, descend to first child's leaf
-                if !(*cur).children.is_empty() {
+                // Only descend into children when we are at the node itself
+                // (i.e. not when we've just climbed from one of its children).
+                if !from_child && !(*cur).children.is_empty() {
                     let first_child = (*cur).children.iter().next()?;
                     return Self::descend(&**first_child as *const Node).map(|p| p as *mut Node);
                 }
@@ -217,7 +213,11 @@ impl Node {
                         found_self = true;
                     }
                 }
+
+                // climb up and mark that we came from a child so the next
+                // iteration doesn't re-descend into the same parent's children
                 cur = parent;
+                from_child = true;
             }
         }
     }
@@ -290,20 +290,19 @@ impl<const D: char> Iter<D> {
         }
         // Reconstruct by walking parents
         let mut key = String::new();
-        unsafe {
-            let mut cur = self.node as *const Node;
-            loop {
+        let mut cur = self.node as *const Node;
+        while cur != ptr::null() {
+            unsafe {
                 key.insert_str(0, &(*cur).key);
                 match (*cur).parent {
                     Some(nn) => {
-                        let parent_ptr = nn.as_ptr();
+                        cur = nn.as_ptr();
                         // Only insert delimiter if parent's parent exists (not root)
-                        if (*parent_ptr).parent.is_some() {
+                        if (*cur).parent.is_some() {
                             key.insert(0, D);
                         }
-                        cur = parent_ptr;
                     }
-                    None => break,
+                    None => cur = ptr::null(),
                 }
             }
         }
