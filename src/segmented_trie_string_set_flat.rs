@@ -1,22 +1,124 @@
-use core::fmt;
-use flat_map::FlatMap;
-use std::borrow::Borrow;
-use std::cmp::Ordering;
 use std::collections::BTreeSet;
-use std::iter::Iterator;
-use std::ptr;
+use std::cmp::Ordering;
+use std::fmt;
+use std::ptr::{self, NonNull};
 
-struct Node {
-    parent: *mut Node,
-    key: String,
-    children: BTreeSet<Box<Node>>,
-    terminal: bool,
+#[derive(Debug, PartialEq)]
+pub struct NodeId {
+    pub value: usize, // pointer address exposed as usize
 }
 
-impl Borrow<str> for Node {
-    fn borrow(&self) -> &str {
-        &self.key
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InsertError {
+    InvalidArg,
+    KeyAlreadyInserted,
+}
+
+#[derive(Debug)]
+pub struct SegmentedTrieSet<const DELIMITER: char> {
+    root: Node,
+}
+
+impl<const DELIMITER: char> Default for SegmentedTrieSet<DELIMITER> {
+    fn default() -> Self {
+        Self { root: Node::new() }
     }
+}
+
+impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn begin(&self) -> Iter<DELIMITER> {
+        Iter::from_first_leaf(&self.root)
+    }
+
+    pub fn end() -> Iter<DELIMITER> {
+        Iter::null()
+    }
+
+    pub fn insert(&mut self, key: &str) -> Result<NodeId, InsertError> {
+        // Reject any key that would create an empty segment (leading, trailing, or duplicate delimiters)
+        let mut cur: *mut Node = &mut self.root as *mut Node;
+        let mut keys: Vec<&str> = Vec::new();
+        for seg in key.split(DELIMITER) {
+            if seg.is_empty() {
+                return Err(InsertError::InvalidArg);
+            }
+            let tmp = unsafe { (*cur).find_child(seg) as *mut Node};
+            // assume segments are unique
+            if tmp.is_null() {
+                keys.push(seg);
+            }
+            else {
+                cur = tmp;
+            }
+        }
+        keys.iter().for_each(|seg| unsafe { cur = (*cur).insert_child(seg) });
+        // If the node is already marked as a leaf, the key already exists
+        if unsafe { (*cur).is_leaf } {
+            return Err(InsertError::KeyAlreadyInserted);
+        }
+        unsafe { (*cur).is_leaf = true };
+        Ok(NodeId { value: cur as usize })
+    }
+
+    pub fn contains(&self, key: &str) -> bool {
+        self.find(key).is_some()
+    }
+
+    pub fn find(&self, key: &str) -> Option<Iter<DELIMITER>> {
+        let cur = key
+            .split(DELIMITER)
+            .filter(|s| !s.is_empty())
+            .fold(&self.root as *const Node, |cur, seg| {
+                unsafe { (*cur).find_child(seg) }
+            });
+        if !cur.is_null() && unsafe { (*cur).is_leaf } {
+            return Some(Iter::from_node(cur as *mut Node));
+        }
+        None
+    }
+
+    pub unsafe fn find_by_id(&self, id: NodeId) -> Option<Iter<DELIMITER>> {
+        // SAFETY: caller must ensure id is valid; we don't guarantee liveness across mutations
+        std::num::NonZeroUsize::new(id.value)
+            .map(|nz| Iter::from_node(nz.get() as *mut Node))
+    }
+
+    // Return iter over all leaves under prefix; end is exclusive
+    pub fn equal_range(&self, prefix: &str) -> (Iter<DELIMITER>, Iter<DELIMITER>) {
+        let cur = prefix
+            .split(DELIMITER)
+            .filter(|s| !s.is_empty())
+            .fold(&self.root as *const Node, |cur, seg| {
+                unsafe { (*cur).find_child(seg) }
+            });
+
+        let mut end: Iter<DELIMITER> = SegmentedTrieSet::end();
+        let begin = unsafe { match Node::descend(cur) {
+            Some(n) => {
+                if let Some(n) = Node::first_leaf_of_next_subtree(cur) {
+                    end = Iter::from_first_leaf(&*n);
+                }
+                Iter::from_first_leaf(&*n)
+            },
+            None => SegmentedTrieSet::end()
+        }};
+
+        (begin, end)
+    }
+}
+
+// --- Internal Node ---
+
+#[derive(Debug)]
+struct Node {
+    parent: Option<NonNull<Node>>,
+    key: String, // segment at this node (empty for root)
+    children: BTreeSet<Box<Node>>,
+    is_leaf: bool,
 }
 
 impl PartialEq for Node {
@@ -24,213 +126,202 @@ impl PartialEq for Node {
         self.key == other.key
     }
 }
+
 impl Eq for Node {}
 
 impl PartialOrd for Node {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.key.cmp(&other.key))
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
+
 impl Ord for Node {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         self.key.cmp(&other.key)
     }
 }
 
-impl PartialEq<&str> for Node {
-    fn eq(&self, other: &&str) -> bool {
-        self.key == *other
+impl Node {
+    fn new() -> Self {
+        Self {
+            parent: None,
+            key: String::new(),
+            children: BTreeSet::new(),
+            is_leaf: false,
+        }
     }
-}
 
-impl PartialOrd<&str> for Node {
-    fn partial_cmp(&self, other: &&str) -> Option<Ordering> {
-        Some(self.key.as_str().cmp(*other))
+    fn new_child(parent: *mut Node, key: &str) -> Box<Node> {
+        let node = Box::new(Self {
+            parent: NonNull::new(parent),
+            key: key.to_string(),
+            children: BTreeSet::new(),
+            is_leaf: false,
+        });
+        node
     }
-}
 
-/// A variant of SegmentedTrieStringSet where each node's children are stored in a
-/// FlatMap.
-/// Trade-offs vs the BTreeMap-backed version:
-/// - Pros: fewer heap nodes, cache-friendly iteration; deterministic order.
-/// - Cons: insert/remove are O(k * log n + n) per level due to Vec shifts.
-///
-/// Semantics are identical to SegmentedTrieStringSet: keys are split by a
-/// delimiter char; each edge stores an entire segment; empty segments are
-/// preserved.
-pub struct SegmentedTrieStringSetFlat {
-    root: Box<Node>,
-    len: usize,
-    delim: char,
-}
-
-pub struct Iter<'a> {
-    current: Option<&'a Node>,
-}
-
-impl<'a> Iter<'a> {
-    pub fn new(n: &'a Node) -> Iter<'a> {
-        Iter { current: Some(n) }
+    // SAFETY: self must be valid; returns pointer to child (owned by self)
+    unsafe fn insert_child(&mut self, seg: &str) -> *mut Node {
+        let child = Self::new_child(self as *mut Node, seg);
+        let ptr: *mut Node = &*child as *const Node as *mut Node;
+        self.children.insert(child);
+        ptr
     }
-}
 
-impl<'a> Iterator for Iter<'a> {
-    type Item = (String, crate::TrieSetId);
+    unsafe fn find_child(&self, seg: &str) -> *const Node {
+        if seg.is_empty() {
+            return self as *const Node;
+        }
+        // Use iterator helper to locate the child without a manual loop
+        self.children
+            .iter()
+            .find(|child| child.key == seg)
+            .map(|child| &**child as *const Node).unwrap_or(ptr::null())
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut node = self.current?;
+    unsafe fn descend(n: *const Node) -> Option<*mut Node> {
+        unsafe {
+            if (*n).is_leaf {
+                return Some(n as *mut Node);
+            }
+            (*n)
+                .children
+                .iter()
+                .find_map(|child| Node::descend(&**child as *const Node))
+        }
+    }
+
+    unsafe fn increment(mut cur: *const Node) -> Option<*mut Node> {
+        // `from_child` is true when we've just climbed up from a child.
+        // When climbing up we must not immediately descend into the parent's
+        // first child (that would re-enter the subtree we came from and loop).
+        let mut from_child = false;
         loop {
-            if let Some(child) = node.children.iter().find(|c| c.terminal ) {
-                node = child;
-                break;
-            }
-            if node.parent.is_null() {
-                return None;
-            }
             unsafe {
-                node = &mut *node.parent;
+                // Only descend into children when we are at the node itself
+                // (i.e. not when we've just climbed from one of its children).
+                if !from_child && !(*cur).children.is_empty() {
+                    let first_child = (*cur).children.iter().next()?;
+                    return Self::descend(&**first_child as *const Node).map(|p| p as *mut Node);
+                }
+
+                let parent = match (*cur).parent {
+                    Some(nn) => nn.as_ptr(),
+                    None => return None,
+                };
+
+                let cur_key = &(*cur).key;
+                if let Some(next_child) = (*parent)
+                    .children
+                    .iter()
+                    .skip_while(|child| &child.key != cur_key)
+                    .nth(1)
+                {
+                    let start = &**next_child as *const Node;
+                    return Self::descend(start).map(|p| p as *mut Node);
+                }
+
+                // climb up and mark that we came from a child so the next
+                // iteration doesn't re-descend into the same parent's children
+                cur = parent;
+                from_child = true;
             }
         }
-        if node.terminal == false {
+    }
+
+    unsafe fn first_leaf_of_next_subtree(cur: *const Node) -> Option<*mut Node> {
+        // If cur has a parent, find next sibling of cur and descend
+        unsafe {
+            let parent = match (*cur).parent {
+                Some(nn) => nn.as_ptr(),
+                None => return None,
+            };
+            let cur_key = &(*cur).key;
+            if let Some(next_child) = (*parent)
+                .children
+                .iter()
+                .skip_while(|child| &child.key != cur_key)
+                .nth(1)
+            {
+                return Self::descend(&**next_child as *const Node);
+            }
+        }
+        None
+    }
+}
+
+
+// --- Public iterators ---
+pub struct Iter<const D: char> {
+    node: *mut Node,
+}
+
+impl<const D: char> Iter<D> {
+    fn null() -> Self {
+        Self { node: ptr::null_mut() }
+    }
+
+    fn from_node(n: *mut Node) -> Self {
+        Self { node: n }
+    }
+
+    fn from_first_leaf(root: &Node) -> Self {
+        match unsafe { Node::descend(root as *const Node) } {
+            Some(n) => Self { node: n },
+            None => Self::null(),
+        }
+    }
+
+    pub fn id(&self) -> NodeId {
+        NodeId { value: self.node as usize }
+    }
+
+    pub fn is_end(&self) -> bool {
+        self.node.is_null()
+    }
+
+    pub fn next(&mut self) {
+        if self.node.is_null() {
+            return;
+        }
+        // SAFETY: self.node is valid leaf
+        self.node = unsafe { Node::increment(self.node as *const Node) }.unwrap_or(ptr::null_mut());
+    }
+
+    pub fn key(&self) -> Option<String> {
+        if self.node.is_null() {
             return None;
         }
-        let addr = node as *const Node as usize;
-        let ret = Some((node.key.clone(), crate::TrieSetId { addr }));
-        self.current = Some(node);
-        ret
+        // Reconstruct by walking parents
+        let mut key = String::new();
+        let mut cur = self.node as *const Node;
+        while cur != ptr::null() {
+            unsafe {
+                key.insert_str(0, &(*cur).key);
+                match (*cur).parent {
+                    Some(nn) => {
+                        cur = nn.as_ptr();
+                        // Only insert delimiter if parent's parent exists (not root)
+                        if (*cur).parent.is_some() {
+                            key.insert(0, D);
+                        }
+                    }
+                    None => cur = ptr::null(),
+                }
+            }
+        }
+        Some(key)
     }
 }
 
-impl Default for SegmentedTrieStringSetFlat {
-    fn default() -> Self {
-        Self { root: Box::new(Node::default()), len: 0, delim: '.' }
-    }
-}
-
-impl Default for Node {
-    fn default() -> Self { Self {
-        parent: ptr::null_mut(), key: String::new(), children: BTreeSet::new(), terminal: false }
-    }
-}
-
-impl fmt::Debug for SegmentedTrieStringSetFlat {
+impl<const D: char> fmt::Debug for Iter<D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Print as a set of escaped byte strings
-        struct Disp<'a>(&'a SegmentedTrieStringSetFlat);
-        impl<'a> fmt::Debug for Disp<'a> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                todo!()
-            }
+        if let Some(k) = self.key() {
+            write!(f, "Iter({k})")
+        } else {
+            write!(f, "Iter(end)")
         }
-        fmt::Debug::fmt(&Disp(self), f)
-    }
-}
-
-impl SegmentedTrieStringSetFlat {
-    pub fn new() -> Self { Self::default() }
-
-    /// Create a set using the provided delimiter byte for segmentation.
-    pub fn with_delimiter(delim: char) -> Self { Self { delim, ..Self::default() } }
-
-    #[inline]
-    pub fn len(&self) -> usize { self.len }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool { self.len == 0 }
-
-    pub fn clear(&mut self) {
-        self.root = Box::new(Node::default());
-        self.len = 0;
-    }
-
-    /// Insert a key.
-    ///
-    /// Returns a unique Some(TrieSetId) if the key was newly inserted.
-    /// Returns None if the key was already present or if the key is empty.
-    pub fn insert(&mut self, key: &str) -> Option<crate::TrieSetId> {
-        if key.is_empty() { return None; }
-        let mut node = self.root.as_mut();
-        for seg in key.split(self.delim) {
-            if seg.is_empty() {
-                continue;
-            }
-            let p = node as *mut Node;
-            if !node.children.contains(seg) {
-                node.children.insert(Box::new(Node { parent: p, key: seg.to_owned(), children: BTreeSet::new(), terminal: false }));
-                }
-        }
-        if node.terminal {
-            return None
-        }
-        node.terminal = true;
-        self.len += 1;
-        let addr = (node as *const Node) as usize;
-        Some(crate::TrieSetId { addr })
-    }
-
-    /// Returns true if the key is present.
-    pub fn contains(&self, key: &str) -> bool {
-        if key.is_empty() { return false; }
-        let mut node: &Node = self.root.as_ref();
-        for seg in key.split(self.delim) {
-            match node.children.get(seg) {
-                Some(next) => node = next,
-                None => return false,
-            }
-        }
-        node.terminal
-    }
-
-    pub fn remove(&mut self, key: &str) -> bool {
-        if key.is_empty() { return false; }
-        let mut path: Vec<*mut Node> = Vec::new();
-        let mut node: *mut Node = &mut *self.root;
-        for seg in key.split(self.delim) {
-            unsafe {
-                match (*node).children.get_mut(seg) {
-                    Some(next) => {
-                        path.push(node);
-                        node = &mut **next;
-                    }
-                    None => return false,
-                }
-            }
-        }
-        unsafe {
-            if !(*node).terminal {
-                return false;
-            }
-            (*node).terminal = false;
-            self.len -= 1;
-        }
-        // prune
-        while let Some(parent_ptr) = path.pop() {
-            unsafe {
-                let parent = &mut *parent_ptr;
-                if let Some(child) = parent.children.get(&(*node).key) {
-                    if !child.terminal && child.children.is_empty() {
-                        parent.children.remove(&(*node).key);
-                    } else {
-                        break;
-                    }
-                }
-                node = parent;
-            }
-        }
-        true
-    }
-
-    pub fn iter(&self) -> Iter<'_> { Iter::new(&self.root) }
-    pub fn get(&self, id: crate::TrieSetId) -> String {
-        let ptr = id.addr as *const Node;
-        let mut node = unsafe { &*ptr };
-        let mut s = node.key.clone();
-        while node.parent != ptr::null_mut() {
-            node = unsafe { &*node.parent };
-            s.insert(0, self.delim);
-            s.insert_str(0, node.key.as_ref());
-        }
-        s
     }
 }
 
@@ -239,59 +330,85 @@ mod tests {
     use super::*;
 
     #[test]
-    fn basic_string_ops_flat() {
-        let mut s = SegmentedTrieStringSetFlat::new();
-        assert!(s.insert("").is_none()); // empty string not allowed
-        assert!(!s.contains(""));
-
-        assert!(s.insert("a").is_some());
-        assert!(s.insert("ab").is_some());
-        assert!(s.contains("a"));
-        assert!(s.contains("ab"));
-        assert!(!s.contains("abc"));
-
-        assert!(s.remove("a"));
-        assert!(!s.contains("a"));
-        assert!(s.contains("ab"));
-        assert!(!s.remove("a"));
+    fn insert_find_contains_basic() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        let id_a = trie.insert("a").unwrap();
+        let id_ab = trie.insert("a/b").unwrap();
+        assert!(trie.contains("/a"));
+        assert!(trie.contains("/a/b"));
+        assert!(!trie.contains("/b"));
+        // check ids are non-zero
+        assert_ne!(id_a.value, 0);
+        assert_ne!(id_ab.value, 0);
     }
 
     #[test]
-    fn segmented_by_dot_flat() {
-        let mut s = SegmentedTrieStringSetFlat::new(); // default '.'
-        assert!(s.insert("a").is_some());
-        assert!(s.insert("a.b").is_some());
-        assert!(s.insert("a.b.c").is_some());
-        assert!(s.contains("a"));
-        assert!(s.contains("a.b"));
-        assert!(s.contains("a.b.c"));
-        assert!(!s.contains("a.c"));
+    fn iterator_order_and_keys() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        let _ = trie.insert("a/b");
+        let _ = trie.insert("a/c");
+        let _ = trie.insert("b");
+        let _ = trie.insert("a"); // make "a" a leaf too
 
-        // empty segments preserved
-        assert!(s.insert("a..b").is_some());
-        assert!(s.contains("a..b"));
-        assert!(s.insert(".lead").is_some());
-        assert!(s.contains(".lead"));
-        assert!(s.insert("trail.").is_some());
-        assert!(s.contains("trail."));
+        let mut it = trie.begin();
+        let mut keys = Vec::new();
+        while !it.is_end() {
+            keys.push(it.key().unwrap());
+            it.next();
+        }
 
-        // removal prunes properly and doesn't affect siblings
-        assert!(s.remove("a.b"));
-        assert!(!s.contains("a.b"));
-        assert!(s.contains("a.b.c"));
-        assert!(s.contains("a"));
+        // Expected traversal: "a" (leaf) then "a/b" then "a/c" then "b"
+        assert_eq!(keys, vec!["a".to_string(), "a/b".to_string(), "a/c".to_string(), "b".to_string()]);
     }
 
     #[test]
-    fn iter_enumerates_all_terminals() {
-        let mut s = SegmentedTrieStringSetFlat::new();
-        s.insert("a");
-        s.insert("a.b");
-        s.insert("a..b");
-        s.insert(".lead");
-        s.insert("trail.");
-        let mut keys: Vec<String> = s.iter().map(|(_, id)| s.get(id)).collect();
-        keys.sort();
-        assert_eq!(keys, vec![".lead".to_string(), "a".to_string(), "a..b".to_string(), "a.b".to_string(), "trail.".to_string()]);
+    fn equal_range_prefix_collects_expected() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        let _ = trie.insert("a/b/1");
+        let _ = trie.insert("a/b/2");
+        let _ = trie.insert("a/c/1");
+        let _ = trie.insert("a/c/2");
+        let _ = trie.insert("z");
+
+        // range for "/a/b" should include "a/b/1" and "a/b/2" and end at first leaf of next sibling subtree ("a/c/1")
+        let (mut begin, end) = trie.equal_range("a/b");
+        let mut seen = Vec::new();
+        while begin.id() != end.id() && !begin.is_end() {
+            seen.push(begin.key().unwrap());
+            begin.next();
+        }
+
+        assert_eq!(seen, vec!["a/b/1".to_string(), "a/b/2".to_string()]);
+    }
+
+    #[test]
+    fn find_by_id_and_invalid_zero() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        let id = trie.insert("x/y").unwrap();
+        // valid id
+        unsafe {
+            let it = trie.find_by_id(id).expect("should find by id");
+            assert_eq!(it.key().unwrap(), "x/y".to_string());
+        }
+        // zero id is considered None
+        unsafe {
+            assert!(trie.find_by_id(NodeId { value: 0 }).is_none());
+        }
+    }
+
+    #[test]
+    fn insert_rejects_empty_segments() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        assert_eq!(trie.insert("/a"), Err(InsertError::InvalidArg));
+        assert_eq!(trie.insert("a//b"), Err(InsertError::InvalidArg));
+        assert_eq!(trie.insert("trail/"), Err(InsertError::InvalidArg));
+        assert_eq!(trie.insert("").err(), Some(InsertError::InvalidArg));
+    }
+
+    #[test]
+    fn insert_same_key_twice_errors() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        assert!(trie.insert("a/b").is_ok());
+        assert_eq!(trie.insert("a/b"), Err(InsertError::KeyAlreadyInserted));
     }
 }
