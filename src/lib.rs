@@ -13,4 +13,4 @@ pub struct TrieSetId {
 
 pub use segmented_trie_set::SegmentedTrieSet;
 pub use segmented_trie_string_set::SegmentedTrieStringSet;
-pub use segmented_trie_string_set_flat::SegmentedTrieStringSetFlat;
+//pub use segmented_trie_string_set_flat::SegmentedTrieStringSetFlat;
