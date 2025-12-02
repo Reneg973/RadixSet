@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::cmp::Ordering;
 use std::fmt;
 use std::ptr::{self, NonNull};
 
@@ -102,8 +103,28 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
 struct Node {
     parent: Option<NonNull<Node>>,
     key: String, // segment at this node (empty for root)
-    children: BTreeMap<String, Box<Node>>,
+    children: BTreeSet<Box<Node>>,
     is_leaf: bool,
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl Eq for Node {}
+
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.key.cmp(&other.key)
+    }
 }
 
 impl Node {
@@ -111,7 +132,7 @@ impl Node {
         Self {
             parent: None,
             key: String::new(),
-            children: BTreeMap::new(),
+            children: BTreeSet::new(),
             is_leaf: false,
         }
     }
@@ -120,7 +141,7 @@ impl Node {
         let node = Box::new(Self {
             parent: NonNull::new(parent),
             key: key.to_string(),
-            children: BTreeMap::new(),
+            children: BTreeSet::new(),
             is_leaf: false,
         });
         node
@@ -131,12 +152,16 @@ impl Node {
         if seg.is_empty() {
             return self as *mut Node;
         }
-        if let Some(child) = self.children.get_mut(seg) {
-            return &mut **child as *mut Node;
+        // Check if child with this key already exists
+        for child in &self.children {
+            if child.key == seg {
+                return &**child as *const Node as *mut Node;
+            }
         }
-        let mut child = Self::new_child(self as *mut Node, seg);
-        let ptr: *mut Node = &mut *child;
-        self.children.insert(seg.to_string(), child);
+        // Create and insert new child
+        let child = Self::new_child(self as *mut Node, seg);
+        let ptr: *mut Node = &*child as *const Node as *mut Node;
+        self.children.insert(child);
         ptr
     }
 
@@ -144,7 +169,12 @@ impl Node {
         if seg.is_empty() {
             return Some(self as *const Node);
         }
-        self.children.get(seg).map(|b| &**b as *const Node)
+        for child in &self.children {
+            if child.key == seg {
+                return Some(&**child as *const Node);
+            }
+        }
+        None
     }
 
     unsafe fn descend(n: *const Node) -> Option<*mut Node> {
@@ -152,7 +182,7 @@ impl Node {
             if (*n).is_leaf {
                 return Some(n as *mut Node);
             }
-            for (_, child) in (*n).children.iter() {
+            for child in (*n).children.iter() {
                 let leaf = Node::descend(&**child as *const Node);
                 if leaf.is_some() {
                     return leaf;
@@ -165,16 +195,27 @@ impl Node {
     unsafe fn increment(mut cur: *const Node) -> Option<*mut Node> {
         loop {
             unsafe {
+                // If current node has children, descend to first child's leaf
+                if !(*cur).children.is_empty() {
+                    let first_child = (*cur).children.iter().next()?;
+                    return Self::descend(&**first_child as *const Node).map(|p| p as *mut Node);
+                }
+
                 let parent = match (*cur).parent {
                     Some(nn) => nn.as_ptr(),
                     None => return None,
                 };
 
-                let mut it = (*parent).children.range((*cur).key.clone()..);
-                let _self = it.next(); // current
-                if let Some((_, next_child)) = it.next() {
-                    let start = &**next_child as *const Node;
-                    return Self::descend(start).map(|p| p as *mut Node);
+                let cur_key = &(*cur).key;
+                let mut found_self = false;
+                for child in &(*parent).children {
+                    if found_self {
+                        let start = &**child as *const Node;
+                        return Self::descend(start).map(|p| p as *mut Node);
+                    }
+                    if &child.key == cur_key {
+                        found_self = true;
+                    }
                 }
                 cur = parent;
             }
@@ -188,10 +229,15 @@ impl Node {
                 Some(nn) => nn.as_ptr(),
                 None => return None,
             };
-            let mut it = (*parent).children.range((*cur).key.clone()..);
-            it.next(); // skip self
-            if let Some((_, it_next)) = it.next() {
-                return Self::descend(&**it_next as *const Node);
+            let cur_key = &(*cur).key;
+            let mut found_self = false;
+            for child in &(*parent).children {
+                if found_self {
+                    return Self::descend(&**child as *const Node);
+                }
+                if &child.key == cur_key {
+                    found_self = true;
+                }
             }
         }
         None
@@ -250,8 +296,12 @@ impl<const D: char> Iter<D> {
                 key.insert_str(0, &(*cur).key);
                 match (*cur).parent {
                     Some(nn) => {
-                        key.insert(0, D);
-                        cur = nn.as_ptr();
+                        let parent_ptr = nn.as_ptr();
+                        // Only insert delimiter if parent's parent exists (not root)
+                        if (*parent_ptr).parent.is_some() {
+                            key.insert(0, D);
+                        }
+                        cur = parent_ptr;
                     }
                     None => break,
                 }
