@@ -3,9 +3,15 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::ptr::{self, NonNull};
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct NodeId {
     pub value: usize, // pointer address exposed as usize
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InsertError {
+    InvalidArg,
+    KeyAlreadyInserted,
 }
 
 #[derive(Debug)]
@@ -32,18 +38,30 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
         Iter::null()
     }
 
-    pub fn insert(&mut self, key: &str) -> Option<NodeId> {
-        let cur = key
-            .split(DELIMITER)
-            .filter(|s| !s.is_empty())
-            .fold(&mut self.root as *mut Node, |cur, seg| unsafe {
-                (*cur).insert_child(seg)
-            });
-        if unsafe { (*cur).is_leaf }{
-            return None; // already existed
+    pub fn insert(&mut self, key: &str) -> Result<NodeId, InsertError> {
+        // Reject any key that would create an empty segment (leading, trailing, or duplicate delimiters)
+        let mut cur: *mut Node = &mut self.root as *mut Node;
+        let mut keys: Vec<&str> = Vec::new();
+        for seg in key.split(DELIMITER) {
+            if seg.is_empty() {
+                return Err(InsertError::InvalidArg);
+            }
+            let tmp = unsafe { (*cur).find_child(seg) as *mut Node};
+            // assume segments are unique
+            if tmp.is_null() {
+                keys.push(seg);
+            }
+            else {
+                cur = tmp;
+            }
+        }
+        keys.iter().for_each(|seg| unsafe { cur = (*cur).insert_child(seg) });
+        // If the node is already marked as a leaf, the key already exists
+        if unsafe { (*cur).is_leaf } {
+            return Err(InsertError::KeyAlreadyInserted);
         }
         unsafe { (*cur).is_leaf = true };
-        Some(NodeId { value: cur as usize })
+        Ok(NodeId { value: cur as usize })
     }
 
     pub fn contains(&self, key: &str) -> bool {
@@ -54,10 +72,9 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
         let cur = key
             .split(DELIMITER)
             .filter(|s| !s.is_empty())
-            .try_fold(&self.root as *const Node, |cur, seg| {
-                // SAFETY: cur points to valid Node
+            .fold(&self.root as *const Node, |cur, seg| {
                 unsafe { (*cur).find_child(seg) }
-            })?;
+            });
         if !cur.is_null() && unsafe { (*cur).is_leaf } {
             return Some(Iter::from_node(cur as *mut Node));
         }
@@ -72,13 +89,12 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
 
     // Return iter over all leaves under prefix; end is exclusive
     pub fn equal_range(&self, prefix: &str) -> (Iter<DELIMITER>, Iter<DELIMITER>) {
-        let mut cur: *const Node = &self.root;
-        for seg in prefix.split(DELIMITER).filter(|s| !s.is_empty())  {
-            cur = match unsafe { (*cur).find_child(seg) } {
-                Some(n) => n,
-                None => return (SegmentedTrieSet::end(), SegmentedTrieSet::end())
-            };
-        }
+        let cur = prefix
+            .split(DELIMITER)
+            .filter(|s| !s.is_empty())
+            .fold(&self.root as *const Node, |cur, seg| {
+                unsafe { (*cur).find_child(seg) }
+            });
 
         let mut end: Iter<DELIMITER> = SegmentedTrieSet::end();
         let begin = unsafe { match Node::descend(cur) {
@@ -147,28 +163,21 @@ impl Node {
 
     // SAFETY: self must be valid; returns pointer to child (owned by self)
     unsafe fn insert_child(&mut self, seg: &str) -> *mut Node {
-        if seg.is_empty() {
-            return self as *mut Node;
-        }
-        if let Some(ptr) = unsafe { self.find_child(seg) } {
-            return ptr as *mut Node;
-        }
-        // Create and insert new child
         let child = Self::new_child(self as *mut Node, seg);
         let ptr: *mut Node = &*child as *const Node as *mut Node;
         self.children.insert(child);
         ptr
     }
 
-    unsafe fn find_child(&self, seg: &str) -> Option<*const Node> {
+    unsafe fn find_child(&self, seg: &str) -> *const Node {
         if seg.is_empty() {
-            return Some(self as *const Node);
+            return self as *const Node;
         }
         // Use iterator helper to locate the child without a manual loop
         self.children
             .iter()
             .find(|child| child.key == seg)
-            .map(|child| &**child as *const Node)
+            .map(|child| &**child as *const Node).unwrap_or(ptr::null())
     }
 
     unsafe fn descend(n: *const Node) -> Option<*mut Node> {
@@ -323,8 +332,8 @@ mod tests {
     #[test]
     fn insert_find_contains_basic() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
-        let id_a = trie.insert("/a").unwrap();
-        let id_ab = trie.insert("/a/b").unwrap();
+        let id_a = trie.insert("a").unwrap();
+        let id_ab = trie.insert("a/b").unwrap();
         assert!(trie.contains("/a"));
         assert!(trie.contains("/a/b"));
         assert!(!trie.contains("/b"));
@@ -336,10 +345,10 @@ mod tests {
     #[test]
     fn iterator_order_and_keys() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
-        trie.insert("/a/b");
-        trie.insert("/a/c");
-        trie.insert("/b");
-        trie.insert("/a"); // make "a" a leaf too
+        let _ = trie.insert("a/b");
+        let _ = trie.insert("a/c");
+        let _ = trie.insert("b");
+        let _ = trie.insert("a"); // make "a" a leaf too
 
         let mut it = trie.begin();
         let mut keys = Vec::new();
@@ -355,14 +364,14 @@ mod tests {
     #[test]
     fn equal_range_prefix_collects_expected() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
-        trie.insert("/a/b/1");
-        trie.insert("/a/b/2");
-        trie.insert("/a/c/1");
-        trie.insert("/a/c/2");
-        trie.insert("/z");
+        let _ = trie.insert("a/b/1");
+        let _ = trie.insert("a/b/2");
+        let _ = trie.insert("a/c/1");
+        let _ = trie.insert("a/c/2");
+        let _ = trie.insert("z");
 
         // range for "/a/b" should include "a/b/1" and "a/b/2" and end at first leaf of next sibling subtree ("a/c/1")
-        let (mut begin, end) = trie.equal_range("/a/b");
+        let (mut begin, end) = trie.equal_range("a/b");
         let mut seen = Vec::new();
         while begin.id() != end.id() && !begin.is_end() {
             seen.push(begin.key().unwrap());
@@ -375,7 +384,7 @@ mod tests {
     #[test]
     fn find_by_id_and_invalid_zero() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
-        let id = trie.insert("/x/y").unwrap();
+        let id = trie.insert("x/y").unwrap();
         // valid id
         unsafe {
             let it = trie.find_by_id(id).expect("should find by id");
@@ -385,5 +394,21 @@ mod tests {
         unsafe {
             assert!(trie.find_by_id(NodeId { value: 0 }).is_none());
         }
+    }
+
+    #[test]
+    fn insert_rejects_empty_segments() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        assert_eq!(trie.insert("/a"), Err(InsertError::InvalidArg));
+        assert_eq!(trie.insert("a//b"), Err(InsertError::InvalidArg));
+        assert_eq!(trie.insert("trail/"), Err(InsertError::InvalidArg));
+        assert_eq!(trie.insert("").err(), Some(InsertError::InvalidArg));
+    }
+
+    #[test]
+    fn insert_same_key_twice_errors() {
+        let mut trie = SegmentedTrieSet::<'/'>::new();
+        assert!(trie.insert("a/b").is_ok());
+        assert_eq!(trie.insert("a/b"), Err(InsertError::KeyAlreadyInserted));
     }
 }
