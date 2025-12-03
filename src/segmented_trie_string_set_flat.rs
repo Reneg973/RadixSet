@@ -97,12 +97,13 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
             });
 
         let mut end: Iter<DELIMITER> = SegmentedTrieSet::end();
-        let begin = unsafe { match Node::descend(cur) {
-            Some(n) => {
+        let begin = unsafe {
+            match Node::descend(cur) {
+                Some(n) => {
                 if let Some(n) = Node::first_leaf_of_next_subtree(cur) {
                     end = Iter::from_first_leaf(&*n);
-                }
-                Iter::from_first_leaf(&*n)
+                    }
+                    Iter::from_first_leaf(&*n)
             },
             None => SegmentedTrieSet::end()
         }};
@@ -192,25 +193,16 @@ impl Node {
         }
     }
 
-    unsafe fn increment(mut cur: *const Node) -> Option<*mut Node> {
-        // `from_child` is true when we've just climbed up from a child.
-        // When climbing up we must not immediately descend into the parent's
-        // first child (that would re-enter the subtree we came from and loop).
-        let mut from_child = false;
-        loop {
-            unsafe {
-                // Only descend into children when we are at the node itself
-                // (i.e. not when we've just climbed from one of its children).
-                if !from_child && !(*cur).children.is_empty() {
-                    let first_child = (*cur).children.iter().next()?;
-                    return Self::descend(&**first_child as *const Node).map(|p| p as *mut Node);
-                }
+    unsafe fn increment(mut cur: *const Node) -> *mut Node {
+        unsafe {
+            if !(*cur).children.is_empty() {
+                let first_child = (*cur).children.iter().next().unwrap();
+                return Self::descend(&**first_child as *const Node)
+                    .unwrap_or(ptr::null_mut());
+            }
 
-                let parent = match (*cur).parent {
-                    Some(nn) => nn.as_ptr(),
-                    None => return None,
-                };
-
+            while let Some(parent_nn) = (*cur).parent {
+                let parent = parent_nn.as_ptr();
                 let cur_key = &(*cur).key;
                 if let Some(next_child) = (*parent)
                     .children
@@ -219,14 +211,12 @@ impl Node {
                     .nth(1)
                 {
                     let start = &**next_child as *const Node;
-                    return Self::descend(start).map(|p| p as *mut Node);
+                    return Self::descend(start).unwrap_or(ptr::null_mut());
                 }
-
-                // climb up and mark that we came from a child so the next
-                // iteration doesn't re-descend into the same parent's children
-                cur = parent;
-                from_child = true;
+                cur = parent as *const Node;
             }
+
+            ptr::null_mut()
         }
     }
 
@@ -317,6 +307,14 @@ impl<const D: char> fmt::Debug for Iter<D> {
     }
 }
 
+impl<const D: char> PartialEq for Iter<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.node == other.node
+    }
+}
+
+impl<const D: char> Eq for Iter<D> {}
+
 impl<const D: char> Iterator for Iter<D> {
     type Item = String;
 
@@ -325,8 +323,8 @@ impl<const D: char> Iterator for Iter<D> {
             return None;
         }
         let key = self.key();
-        // SAFETY: self.node is a valid leaf; advance to next leaf or end
-        self.node = unsafe { Node::increment(self.node as *const Node) }.unwrap_or(ptr::null_mut());
+        // SAFETY: self.node is a valid leaf; advance to next leaf or end (null)
+        self.node = unsafe { Node::increment(self.node as *const Node) };
         key
     }
 }
@@ -374,7 +372,7 @@ mod tests {
         // range for "/a/b" should include "a/b/1" and "a/b/2" and end at first leaf of next sibling subtree ("a/c/1")
         let (mut begin, end) = trie.equal_range("a/b");
         let mut seen: Vec<String> = Vec::new();
-        while begin.id() != end.id() {
+        while begin != end {
             if let Some(k) = begin.next() { seen.push(k); } else { break; }
         }
 
