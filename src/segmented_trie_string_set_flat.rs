@@ -1,5 +1,5 @@
-use std::collections::BTreeSet;
 use std::cmp::Ordering;
+use std::collections::BTreeSet;
 use std::fmt;
 use std::ptr::{self, NonNull};
 
@@ -38,10 +38,9 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
         let cur = key
             .split(DELIMITER)
             .filter(|s| !s.is_empty())
-            .try_fold(&self.root as *const Node, |cur, seg| {
-                // SAFETY: cur points to valid Node
+            .fold(&self.root as *const Node, |cur, seg| {
                 unsafe { (*cur).find_child(seg) }
-            })?;
+            });
         if !cur.is_null() && unsafe { (*cur).is_leaf } {
             return Some(Iter::from_node(cur as *mut Node));
         }
@@ -74,40 +73,36 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
 
     pub fn insert(&mut self, key: &str) -> Result<NodeId, InsertError> {
         let mut keys: Vec<&str> = Vec::new();
-        let mut seg_exists = true;
-        let mut cur = key
+        let mut node = key
                 .split(DELIMITER)
                 .try_fold(&mut self.root as *mut Node, |cur_ptr, seg| {
             if seg.is_empty() {
                 return Err(InsertError::InvalidArg);
             }
             let mut ret = cur_ptr;
-            if seg_exists {
-                let tmp = unsafe { (*cur_ptr).find_child(seg) as *mut Node };
-                if tmp.is_null() {
-                    seg_exists = false;
-                }
-                else {
-                    ret = tmp;
+            if keys.is_empty() {
+                let child = unsafe { (*cur_ptr).find_child(seg) };
+                if child.is_null() {
+                    keys.push(seg);
+                } else {
+                    ret = child as *mut Node;
                 }
             }
-
-            if !seg_exists {
-                // record missing segment for later insertion, keep current pointer
+            else {
                 keys.push(seg);
             }
             Ok(ret)
         })?;
 
-        // Insert new children for recorded segments
-        keys.iter().for_each(|seg| unsafe { cur = (*cur).insert_child(seg) });
+        keys.iter().for_each(|seg| unsafe { node = (*node).insert_child(seg) });
 
-        // If the node is already marked as a leaf, the key already exists
-        if unsafe { (*cur).is_leaf } {
-            return Err(InsertError::KeyAlreadyInserted);
-        }
-        unsafe { (*cur).is_leaf = true };
-        Ok(NodeId { value: cur as usize })
+        unsafe {
+             if (*node).is_leaf {
+                return Err(InsertError::KeyAlreadyInserted);
+            }
+            (*node).is_leaf = true
+        };
+        Ok(NodeId { value: node as usize })
     }
 
     pub fn contains(&self, key: &str) -> bool {
@@ -115,7 +110,6 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
     }
 
     pub unsafe fn find_by_id(&self, id: NodeId) -> Option<Iter<DELIMITER>> {
-        // SAFETY: caller must ensure id is valid; we don't guarantee liveness across mutations
         std::num::NonZeroUsize::new(id.value)
             .map(|nz| Iter::from_node(nz.get() as *mut Node))
     }
@@ -123,11 +117,18 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
 
 // --- Internal Node ---
 
+// Ensure that the Node is not moving in memory
+// if the set is BTreeSet, we could use Node instead of Box<Node>
+// but I want to replace BTreeSet with a FlatSet (need to compare performance/memory usage)
+// Unfortunately, there is currently no crate with a FlatSet implementation
+type NodeType = Box<Node>;
+type ContainerType = BTreeSet<NodeType>;
+
 #[derive(Debug)]
 struct Node {
     parent: Option<NonNull<Node>>,
     key: String, // segment at this node (empty for root)
-    children: BTreeSet<Box<Node>>,
+    children: ContainerType,
     is_leaf: bool,
 }
 
@@ -156,22 +157,49 @@ impl Node {
         Self {
             parent: None,
             key: String::new(),
-            children: BTreeSet::new(),
+            children: ContainerType::new(),
             is_leaf: false,
         }
     }
 
-    fn new_child(parent: *mut Node, key: &str) -> Box<Node> {
-        let node = Box::new(Self {
+    fn new_child(parent: *mut Node, key: &str) -> NodeType {
+        let node = NodeType::new(Self {
             parent: NonNull::new(parent),
             key: key.to_string(),
-            children: BTreeSet::new(),
+            children: ContainerType::new(),
             is_leaf: false,
         });
         node
     }
 
-    // SAFETY: self must be valid; returns pointer to child (owned by self)
+    // helper: iterate over children as &Node
+    fn children_iter(&self) -> impl Iterator<Item = &Node> {
+        self.children.iter().map(|b| &**b)
+    }
+
+    // helper: find the next sibling of `cur` in its parent and descend to the first leaf.
+    // returns null pointer when not found.
+    fn first_leaf_of_next_sibling(cur: *const Node) -> *mut Node {
+        unsafe {
+            let parent = match (*cur).parent {
+                Some(nn) => nn.as_ptr(),
+                None => return ptr::null_mut(),
+            };
+            let cur_key = (*cur).key.as_str();
+            if let Some(next_child) = (*parent)
+                .children_iter()
+                .skip_while(|child| child.key != cur_key)
+                .nth(1)
+            {
+                let res = Self::descend(next_child as *const Node);
+                if !res.is_null() {
+                    return res;
+                }
+            }
+        }
+        ptr::null_mut()
+    }
+
     unsafe fn insert_child(&mut self, seg: &str) -> *mut Node {
         let child = Self::new_child(self as *mut Node, seg);
         let ptr: *mut Node = &*child as *const Node as *mut Node;
@@ -183,35 +211,32 @@ impl Node {
         if seg.is_empty() {
             return self as *const Node;
         }
-        // Use iterator helper to locate the child without a manual loop
-        self.children
-            .iter()
+        self.children_iter()
             .find(|child| child.key == seg)
-            .map(|child| &**child as *const Node).unwrap_or(ptr::null())
+            .map(|child| child as *const Node)
+            .unwrap_or(ptr::null())
     }
 
-    // changed: return raw pointer (null on failure) instead of Option
     fn descend(n: *const Node) -> *mut Node {
         unsafe {
             if (*n).is_leaf {
                 return n as *mut Node;
             }
-
-            for child in (*n).children.iter() {
-                let res = Node::descend(&**child as *const Node);
-                if !res.is_null() {
-                    return res;
-                }
-            }
-            ptr::null_mut()
+            (&*n)
+                .children_iter()
+                .find_map(|child| {
+                    let res = Node::descend(child as *const Node);
+                    if !res.is_null() { Some(res) } else { None }
+                })
+                .unwrap_or(ptr::null_mut())
         }
     }
 
     unsafe fn increment(mut cur: *const Node) -> *mut Node {
         unsafe {
             if !(*cur).children.is_empty() {
-                let first_child = (*cur).children.iter().next().unwrap();
-                let res = Self::descend(&**first_child as *const Node);
+                let first_child = (*cur).children_iter().next().unwrap();
+                let res = Self::descend(first_child as *const Node);
                 if !res.is_null() {
                     return res;
                 }
@@ -219,22 +244,11 @@ impl Node {
             }
 
             while let Some(parent_nn) = (*cur).parent {
-                let parent = parent_nn.as_ptr();
-                let cur_key = &(*cur).key;
-                if let Some(next_child) = (*parent)
-                    .children
-                    .iter()
-                    .skip_while(|child| &child.key != cur_key)
-                    .nth(1)
-                {
-                    let start = &**next_child as *const Node;
-                    let res = Self::descend(start);
-                    if !res.is_null() {
-                        return res;
-                    }
-                    return ptr::null_mut();
+                let res = Self::first_leaf_of_next_sibling(cur);
+                if !res.is_null() {
+                    return res;
                 }
-                cur = parent as *const Node;
+                cur = parent_nn.as_ptr() as *const Node;
             }
 
             ptr::null_mut()
@@ -242,26 +256,8 @@ impl Node {
     }
 
     fn first_leaf_of_next_subtree(cur: *const Node) -> Option<*mut Node> {
-        // If cur has a parent, find next sibling of cur and descend
-        unsafe {
-            let parent = match (*cur).parent {
-                Some(nn) => nn.as_ptr(),
-                None => return None,
-            };
-            let cur_key = &(*cur).key;
-            if let Some(next_child) = (*parent)
-                .children
-                .iter()
-                .skip_while(|child| &child.key != cur_key)
-                .nth(1)
-            {
-                let res = Self::descend(&**next_child as *const Node);
-                if !res.is_null() {
-                    return Some(res);
-                }
-            }
-        }
-        None
+        let res = Self::first_leaf_of_next_sibling(cur);
+        if res.is_null() { None } else { Some(res) }
     }
 }
 
@@ -297,7 +293,7 @@ impl<const D: char> Iter<D> {
         if self.node.is_null() {
             return None;
         }
-        // Reconstruct by walking parents
+
         let mut key = String::new();
         let mut cur = self.node as *const Node;
         while cur != ptr::null() {
@@ -306,7 +302,6 @@ impl<const D: char> Iter<D> {
                 match (*cur).parent {
                     Some(nn) => {
                         cur = nn.as_ptr();
-                        // Only insert delimiter if parent's parent exists (not root)
                         if (*cur).parent.is_some() {
                             key.insert(0, D);
                         }
@@ -345,7 +340,6 @@ impl<const D: char> Iterator for Iter<D> {
             return None;
         }
         let key = self.key();
-        // SAFETY: self.node is a valid leaf; advance to next leaf or end (null)
         self.node = unsafe { Node::increment(self.node as *const Node) };
         key
     }
@@ -383,11 +377,10 @@ mod tests {
         let _ = trie.insert("a/b");
         let _ = trie.insert("a/c");
         let _ = trie.insert("b");
-        let _ = trie.insert("a"); // make "a" a leaf too
+        let _ = trie.insert("a");
 
         let keys: Vec<String> = trie.iter().collect();
 
-        // Expected traversal: "a" (leaf) then "a/b" then "a/c" then "b"
         assert_eq!(keys, vec!["a".to_string(), "a/b".to_string(), "a/c".to_string(), "b".to_string()]);
     }
 
@@ -400,7 +393,6 @@ mod tests {
         let _ = trie.insert("a/c/2");
         let _ = trie.insert("z");
 
-        // range for "/a/b" should include "a/b/1" and "a/b/2" and end at first leaf of next sibling subtree ("a/c/1")
         let (mut begin, end) = trie.equal_range("a/b");
         let mut seen: Vec<String> = Vec::new();
         while begin != end {
@@ -414,13 +406,10 @@ mod tests {
     fn find_by_id_and_invalid_zero() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
         let id = trie.insert("/x/y").unwrap();
-        // valid id
+
         unsafe {
             let it = trie.find_by_id(id).expect("should find by id");
             assert_eq!(it.key().unwrap(), "x/y".to_string());
-        }
-        // zero id is considered None
-        unsafe {
             assert!(trie.find_by_id(NodeId { value: 0 }).is_none());
         }
     }

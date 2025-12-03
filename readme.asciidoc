@@ -1,0 +1,37 @@
+# SegmentedTrieSet<DELIMITER>
+
+A `SegmentedTrieSet` is a specialized radix tree that organizes strings into a hierarchical structure where each node represents a complete segment rather than a single character. This approach is particularly useful for organizing delimited strings (such as file paths, domain names, or namespace hierarchies) efficiently.
+
+## Features
+
+* O(k) lookup, insertion, and deletion where k is the number of segments
+* Automatic path compression through radix tree properties
+* Support for prefix-based queries and traversals
+* Memory-efficient storage of related strings
+* Self referencing, means on insertion a unique identifier is returned, which can then be used to rebuild the inserted string
+
+## Usage
+```rust
+use segmented_trie_string_set_flat::SegmentedTrieStringSetFlat;
+let mut set = SegmentedTrieStringSetFlat::new("/");
+let bin = set.insert("usr/local/bin");
+let lib = set.insert("usr/local/lib");
+assert!(set.contains("usr/local/bin"));
+assert!(!set.contains("usr/bin"));
+assert_eq!(set.find_by_id(bin).unwrap().key(), Some("usr/local/bin"));
+assert_eq!(set.find_by_id(lib).unwrap().key(), Some("usr/local/lib"));
+```
+
+## Use Cases
+Main use case is that many keys are inserted once, but lookup happens many times.
+* Tree like storage structures such as file systems, or organizational hierarchies.
+
+## Performance
+The `SegmentedTrieSet` is optimized for scenarios where strings share common prefixes. By storing segments as nodes, it reduces redundancy and improves lookup times for related strings.
+
+## Todo
+* Implement more efficient storage for children nodes, possibly using a flat set
+* Currently every branch of the tree gets its own node. This could be optimized by splitting nodes only when necessary. E.g. inserting "usr/local/bin" could create just 1 node instead of 3. If later "usr/local/lib" is inserted, the "local" node could be split into 2 children "bin" and "lib". OTOH it may not worth the overhead.
+
+## License
+MIT/Apache-2.0
