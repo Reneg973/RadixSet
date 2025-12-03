@@ -281,14 +281,6 @@ impl<const D: char> Iter<D> {
         self.node.is_null()
     }
 
-    pub fn next(&mut self) {
-        if self.node.is_null() {
-            return;
-        }
-        // SAFETY: self.node is valid leaf
-        self.node = unsafe { Node::increment(self.node as *const Node) }.unwrap_or(ptr::null_mut());
-    }
-
     pub fn key(&self) -> Option<String> {
         if self.node.is_null() {
             return None;
@@ -325,6 +317,20 @@ impl<const D: char> fmt::Debug for Iter<D> {
     }
 }
 
+impl<const D: char> Iterator for Iter<D> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.node.is_null() {
+            return None;
+        }
+        let key = self.key();
+        // SAFETY: self.node is a valid leaf; advance to next leaf or end
+        self.node = unsafe { Node::increment(self.node as *const Node) }.unwrap_or(ptr::null_mut());
+        key
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,12 +356,7 @@ mod tests {
         let _ = trie.insert("b");
         let _ = trie.insert("a"); // make "a" a leaf too
 
-        let mut it = trie.begin();
-        let mut keys = Vec::new();
-        while !it.is_end() {
-            keys.push(it.key().unwrap());
-            it.next();
-        }
+        let keys: Vec<String> = trie.begin().collect();
 
         // Expected traversal: "a" (leaf) then "a/b" then "a/c" then "b"
         assert_eq!(keys, vec!["a".to_string(), "a/b".to_string(), "a/c".to_string(), "b".to_string()]);
@@ -372,10 +373,9 @@ mod tests {
 
         // range for "/a/b" should include "a/b/1" and "a/b/2" and end at first leaf of next sibling subtree ("a/c/1")
         let (mut begin, end) = trie.equal_range("a/b");
-        let mut seen = Vec::new();
-        while begin.id() != end.id() && !begin.is_end() {
-            seen.push(begin.key().unwrap());
-            begin.next();
+        let mut seen: Vec<String> = Vec::new();
+        while begin.id() != end.id() {
+            if let Some(k) = begin.next() { seen.push(k); } else { break; }
         }
 
         assert_eq!(seen, vec!["a/b/1".to_string(), "a/b/2".to_string()]);
