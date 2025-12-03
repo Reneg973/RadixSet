@@ -30,32 +30,78 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
         Self::default()
     }
 
-    pub fn begin(&self) -> Iter<DELIMITER> {
+    pub fn iter(&self) -> Iter<DELIMITER> {
         Iter::from_first_leaf(&self.root)
     }
 
-    pub fn end() -> Iter<DELIMITER> {
-        Iter::null()
+    pub fn find(&self, key: &str) -> Option<Iter<DELIMITER>> {
+        let cur = key
+            .split(DELIMITER)
+            .filter(|s| !s.is_empty())
+            .try_fold(&self.root as *const Node, |cur, seg| {
+                // SAFETY: cur points to valid Node
+                unsafe { (*cur).find_child(seg) }
+            })?;
+        if !cur.is_null() && unsafe { (*cur).is_leaf } {
+            return Some(Iter::from_node(cur as *mut Node));
+        }
+        None
+    }
+
+    pub fn equal_range(&self, prefix: &str) -> (Iter<DELIMITER>, Iter<DELIMITER>) {
+        let cur = prefix
+            .split(DELIMITER)
+            .filter(|s| !s.is_empty())
+            .fold(&self.root as *const Node, |cur, seg| {
+                unsafe { (*cur).find_child(seg) }
+            });
+
+        let mut end: Iter<DELIMITER> = Iter::new();
+        let begin = unsafe {
+            let n = Node::descend(cur);
+            if !n.is_null() {
+                if let Some(next) = Node::first_leaf_of_next_subtree(cur) {
+                    end = Iter::from_first_leaf(&*next);
+                }
+                Iter::from_first_leaf(&*n)
+            } else {
+                Iter::new()
+            }
+        };
+
+        (begin, end)
     }
 
     pub fn insert(&mut self, key: &str) -> Result<NodeId, InsertError> {
-        // Reject any key that would create an empty segment (leading, trailing, or duplicate delimiters)
-        let mut cur: *mut Node = &mut self.root as *mut Node;
         let mut keys: Vec<&str> = Vec::new();
-        for seg in key.split(DELIMITER) {
+        let mut seg_exists = true;
+        let mut cur = key
+                .split(DELIMITER)
+                .try_fold(&mut self.root as *mut Node, |cur_ptr, seg| {
             if seg.is_empty() {
                 return Err(InsertError::InvalidArg);
             }
-            let tmp = unsafe { (*cur).find_child(seg) as *mut Node};
-            // assume segments are unique
-            if tmp.is_null() {
+            let mut ret = cur_ptr;
+            if seg_exists {
+                let tmp = unsafe { (*cur_ptr).find_child(seg) as *mut Node };
+                if tmp.is_null() {
+                    seg_exists = false;
+                }
+                else {
+                    ret = tmp;
+                }
+            }
+
+            if !seg_exists {
+                // record missing segment for later insertion, keep current pointer
                 keys.push(seg);
             }
-            else {
-                cur = tmp;
-            }
-        }
+            Ok(ret)
+        })?;
+
+        // Insert new children for recorded segments
         keys.iter().for_each(|seg| unsafe { cur = (*cur).insert_child(seg) });
+
         // If the node is already marked as a leaf, the key already exists
         if unsafe { (*cur).is_leaf } {
             return Err(InsertError::KeyAlreadyInserted);
@@ -68,46 +114,10 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
         self.find(key).is_some()
     }
 
-    pub fn find(&self, key: &str) -> Option<Iter<DELIMITER>> {
-        let cur = key
-            .split(DELIMITER)
-            .filter(|s| !s.is_empty())
-            .fold(&self.root as *const Node, |cur, seg| {
-                unsafe { (*cur).find_child(seg) }
-            });
-        if !cur.is_null() && unsafe { (*cur).is_leaf } {
-            return Some(Iter::from_node(cur as *mut Node));
-        }
-        None
-    }
-
     pub unsafe fn find_by_id(&self, id: NodeId) -> Option<Iter<DELIMITER>> {
         // SAFETY: caller must ensure id is valid; we don't guarantee liveness across mutations
         std::num::NonZeroUsize::new(id.value)
             .map(|nz| Iter::from_node(nz.get() as *mut Node))
-    }
-
-    // Return iter over all leaves under prefix; end is exclusive
-    pub fn equal_range(&self, prefix: &str) -> (Iter<DELIMITER>, Iter<DELIMITER>) {
-        let cur = prefix
-            .split(DELIMITER)
-            .filter(|s| !s.is_empty())
-            .fold(&self.root as *const Node, |cur, seg| {
-                unsafe { (*cur).find_child(seg) }
-            });
-
-        let mut end: Iter<DELIMITER> = SegmentedTrieSet::end();
-        let begin = unsafe { match Node::descend(cur) {
-            Some(n) => {
-                if let Some(n) = Node::first_leaf_of_next_subtree(cur) {
-                    end = Iter::from_first_leaf(&*n);
-                }
-                Iter::from_first_leaf(&*n)
-            },
-            None => SegmentedTrieSet::end()
-        }};
-
-        (begin, end)
     }
 }
 
@@ -180,37 +190,36 @@ impl Node {
             .map(|child| &**child as *const Node).unwrap_or(ptr::null())
     }
 
-    unsafe fn descend(n: *const Node) -> Option<*mut Node> {
+    // changed: return raw pointer (null on failure) instead of Option
+    fn descend(n: *const Node) -> *mut Node {
         unsafe {
             if (*n).is_leaf {
-                return Some(n as *mut Node);
+                return n as *mut Node;
             }
-            (*n)
-                .children
-                .iter()
-                .find_map(|child| Node::descend(&**child as *const Node))
+
+            for child in (*n).children.iter() {
+                let res = Node::descend(&**child as *const Node);
+                if !res.is_null() {
+                    return res;
+                }
+            }
+            ptr::null_mut()
         }
     }
 
-    unsafe fn increment(mut cur: *const Node) -> Option<*mut Node> {
-        // `from_child` is true when we've just climbed up from a child.
-        // When climbing up we must not immediately descend into the parent's
-        // first child (that would re-enter the subtree we came from and loop).
-        let mut from_child = false;
-        loop {
-            unsafe {
-                // Only descend into children when we are at the node itself
-                // (i.e. not when we've just climbed from one of its children).
-                if !from_child && !(*cur).children.is_empty() {
-                    let first_child = (*cur).children.iter().next()?;
-                    return Self::descend(&**first_child as *const Node).map(|p| p as *mut Node);
+    unsafe fn increment(mut cur: *const Node) -> *mut Node {
+        unsafe {
+            if !(*cur).children.is_empty() {
+                let first_child = (*cur).children.iter().next().unwrap();
+                let res = Self::descend(&**first_child as *const Node);
+                if !res.is_null() {
+                    return res;
                 }
+                return ptr::null_mut();
+            }
 
-                let parent = match (*cur).parent {
-                    Some(nn) => nn.as_ptr(),
-                    None => return None,
-                };
-
+            while let Some(parent_nn) = (*cur).parent {
+                let parent = parent_nn.as_ptr();
                 let cur_key = &(*cur).key;
                 if let Some(next_child) = (*parent)
                     .children
@@ -219,18 +228,20 @@ impl Node {
                     .nth(1)
                 {
                     let start = &**next_child as *const Node;
-                    return Self::descend(start).map(|p| p as *mut Node);
+                    let res = Self::descend(start);
+                    if !res.is_null() {
+                        return res;
+                    }
+                    return ptr::null_mut();
                 }
-
-                // climb up and mark that we came from a child so the next
-                // iteration doesn't re-descend into the same parent's children
-                cur = parent;
-                from_child = true;
+                cur = parent as *const Node;
             }
+
+            ptr::null_mut()
         }
     }
 
-    unsafe fn first_leaf_of_next_subtree(cur: *const Node) -> Option<*mut Node> {
+    fn first_leaf_of_next_subtree(cur: *const Node) -> Option<*mut Node> {
         // If cur has a parent, find next sibling of cur and descend
         unsafe {
             let parent = match (*cur).parent {
@@ -244,7 +255,10 @@ impl Node {
                 .skip_while(|child| &child.key != cur_key)
                 .nth(1)
             {
-                return Self::descend(&**next_child as *const Node);
+                let res = Self::descend(&**next_child as *const Node);
+                if !res.is_null() {
+                    return Some(res);
+                }
             }
         }
         None
@@ -258,8 +272,12 @@ pub struct Iter<const D: char> {
 }
 
 impl<const D: char> Iter<D> {
-    fn null() -> Self {
+    pub fn new() -> Self {
         Self { node: ptr::null_mut() }
+    }
+
+    pub fn id(&self) -> NodeId {
+        NodeId { value: self.node as usize }
     }
 
     fn from_node(n: *mut Node) -> Self {
@@ -267,29 +285,15 @@ impl<const D: char> Iter<D> {
     }
 
     fn from_first_leaf(root: &Node) -> Self {
-        match unsafe { Node::descend(root as *const Node) } {
-            Some(n) => Self { node: n },
-            None => Self::null(),
+        let n = Node::descend(root as *const Node);
+        if !n.is_null() {
+            Self { node: n }
+        } else {
+            Self::new()
         }
     }
 
-    pub fn id(&self) -> NodeId {
-        NodeId { value: self.node as usize }
-    }
-
-    pub fn is_end(&self) -> bool {
-        self.node.is_null()
-    }
-
-    pub fn next(&mut self) {
-        if self.node.is_null() {
-            return;
-        }
-        // SAFETY: self.node is valid leaf
-        self.node = unsafe { Node::increment(self.node as *const Node) }.unwrap_or(ptr::null_mut());
-    }
-
-    pub fn key(&self) -> Option<String> {
+    fn key(&self) -> Option<String> {
         if self.node.is_null() {
             return None;
         }
@@ -325,6 +329,37 @@ impl<const D: char> fmt::Debug for Iter<D> {
     }
 }
 
+impl<const D: char> PartialEq for Iter<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.node == other.node
+    }
+}
+
+impl<const D: char> Eq for Iter<D> {}
+
+impl<const D: char> Iterator for Iter<D> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.node.is_null() {
+            return None;
+        }
+        let key = self.key();
+        // SAFETY: self.node is a valid leaf; advance to next leaf or end (null)
+        self.node = unsafe { Node::increment(self.node as *const Node) };
+        key
+    }
+}
+
+impl<const DELIMITER: char> IntoIterator for &SegmentedTrieSet<DELIMITER> {
+    type Item = String;
+    type IntoIter = Iter<DELIMITER>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,8 +367,8 @@ mod tests {
     #[test]
     fn insert_find_contains_basic() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
-        let id_a = trie.insert("a").unwrap();
-        let id_ab = trie.insert("a/b").unwrap();
+        let id_a = trie.insert("/a").unwrap();
+        let id_ab = trie.insert("/a/b").unwrap();
         assert!(trie.contains("/a"));
         assert!(trie.contains("/a/b"));
         assert!(!trie.contains("/b"));
@@ -350,12 +385,7 @@ mod tests {
         let _ = trie.insert("b");
         let _ = trie.insert("a"); // make "a" a leaf too
 
-        let mut it = trie.begin();
-        let mut keys = Vec::new();
-        while !it.is_end() {
-            keys.push(it.key().unwrap());
-            it.next();
-        }
+        let keys: Vec<String> = trie.iter().collect();
 
         // Expected traversal: "a" (leaf) then "a/b" then "a/c" then "b"
         assert_eq!(keys, vec!["a".to_string(), "a/b".to_string(), "a/c".to_string(), "b".to_string()]);
@@ -372,10 +402,9 @@ mod tests {
 
         // range for "/a/b" should include "a/b/1" and "a/b/2" and end at first leaf of next sibling subtree ("a/c/1")
         let (mut begin, end) = trie.equal_range("a/b");
-        let mut seen = Vec::new();
-        while begin.id() != end.id() && !begin.is_end() {
-            seen.push(begin.key().unwrap());
-            begin.next();
+        let mut seen: Vec<String> = Vec::new();
+        while begin != end {
+            if let Some(k) = begin.next() { seen.push(k); } else { break; }
         }
 
         assert_eq!(seen, vec!["a/b/1".to_string(), "a/b/2".to_string()]);
@@ -384,7 +413,7 @@ mod tests {
     #[test]
     fn find_by_id_and_invalid_zero() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
-        let id = trie.insert("x/y").unwrap();
+        let id = trie.insert("/x/y").unwrap();
         // valid id
         unsafe {
             let it = trie.find_by_id(id).expect("should find by id");
