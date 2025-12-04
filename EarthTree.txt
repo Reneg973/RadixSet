@@ -1,0 +1,544 @@
+Earth.Age
+Earth.OrbitalPeriod
+Earth.Density
+Earth.SurfaceArea
+Earth.SolarFlux
+Earth.Gravity
+Earth.RotationPeriod
+Earth.Dimensions.Volume
+Earth.Dimensions.Diameter
+Earth.Dimensions.Mass
+Earth.Dimensions.SurfaceArea
+Earth.Physics.GravitationalField
+Earth.Physics.MagneticField
+Earth.Physics.AtmosphericPressure
+Earth.Physics.ThermalConductivity
+Earth.Physics.CentrifugalForce
+Earth.Physics.ElectromagneticSpectrum
+Earth.Physics.Radiation
+Earth.Biology.Lifeforms.Animals.Mammals.Monotremata.Ornithorhynchus
+Earth.Biology.Lifeforms.Animals.Mammals.Monotremata.Tachyglossus
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Didelphimorphia
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Paucituberculata
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Microbiotheria
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Notoryctemorphia
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Vombatiformes
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Diprotodontia
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Afrosoricida
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Macroscelidea
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Tubulidentata
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Hyracoidea
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Proboscidea
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Primates
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Rodentia
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Lagomorpha
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Sirenia
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Pilosa
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Cingulata
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Chiroptera
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Dermoptera
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Perissodactyla
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Artiodactyla
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Eulipotyphla
+Earth.Biology.Lifeforms.Animals.Reptiles
+Earth.Biology.Lifeforms.Animals.Birds
+Earth.Biology.Lifeforms.Animals.Fishes
+Earth.Biology.Lifeforms.Animals.Insects
+Earth.Biology.Lifeforms.Plants
+Earth.Biology.Lifeforms.Fungi
+Earth.Biology.Lifeforms.Bacteria.Firmicutes.Streptococcus
+Earth.Biology.Lifeforms.Bacteria.Firmicutes.Staphylococcus
+Earth.Biology.Lifeforms.Bacteria.Firmicutes.Bacillus
+Earth.Biology.Lifeforms.Bacteria.Firmicutes.Clostridium
+Earth.Biology.Lifeforms.Bacteria.Firmicutes.Listeria
+Earth.Biology.Lifeforms.Bacteria.Proteobacteria.Escherichia coli
+Earth.Biology.Lifeforms.Bacteria.Proteobacteria.Salmonella
+Earth.Biology.Lifeforms.Bacteria.Proteobacteria.Pseudomonas aeruginosa
+Earth.Biology.Lifeforms.Bacteria.Proteobacteria.Rhodobacter
+Earth.Biology.Lifeforms.Bacteria.Proteobacteria.Vibrio cholerae
+Earth.Biology.Lifeforms.Bacteria.Actinobacteria.Streptomyces
+Earth.Biology.Lifeforms.Bacteria.Actinobacteria.Mycobacterium tuberculosis
+Earth.Biology.Lifeforms.Bacteria.Actinobacteria.Mycobacterium leprae
+Earth.Biology.Lifeforms.Bacteria.Actinobacteria.Corynebacterium
+Earth.Biology.Lifeforms.Bacteria.Bacteroidetes.Bacteroides fragilis
+Earth.Biology.Lifeforms.Bacteria.Bacteroidetes.Prevotella
+Earth.Biology.Lifeforms.Bacteria.Cyanobacteria.Anabaena
+Earth.Biology.Lifeforms.Bacteria.Cyanobacteria.Microcystis
+Earth.Biology.Lifeforms.Bacteria.Spirochaetes.Treponema pallidum
+Earth.Biology.Lifeforms.Bacteria.Spirochaetes.Borrelia burgdorferi
+Earth.Biology.Lifeforms.Bacteria.Acetobacter
+Earth.Biology.Lifeforms.Bacteria.Enterobacter
+Earth.Biology.Lifeforms.Bacteria.Desulfovibrio
+Earth.Biology.Lifeforms.Bacteria.Nitrosomonas / Nitrobacter
+Earth.Biology.Lifeforms.Bacteria.Rhizobium
+Earth.Biology.Lifeforms.Bacteria.Azotobacter
+Earth.Biology.Lifeforms.Bacteria.Xanthomonas
+Earth.Biology.Lifeforms.Bacteria.Pseudomonas fluorescens
+Earth.Biology.Evolution
+Earth.Biology.Genetics
+Earth.Biology.Biochemistry
+Earth.Geology.Rocks
+Earth.Geology.Rocks.Igneous.Basalt
+Earth.Geology.Rocks.Igneous.Andesite
+Earth.Geology.Rocks.Igneous.Rhyolite
+Earth.Geology.Rocks.Igneous.Gabbro
+Earth.Geology.Rocks.Igneous.Diorite
+Earth.Geology.Rocks.Igneous.Granite
+Earth.Geology.Rocks.Igneous.Obsidian
+Earth.Geology.Rocks.Igneous.Pumice
+Earth.Geology.Rocks.Igneous.Peridotite
+Earth.Geology.Rocks.Sedimentary.Clastic.Sandstone
+Earth.Geology.Rocks.Sedimentary.Clastic.Shale (mudstone, siltstone)
+Earth.Geology.Rocks.Sedimentary.Clastic.Conglomerate
+Earth.Geology.Rocks.Sedimentary.Clastic.Breccia
+Earth.Geology.Rocks.Sedimentary.Chemical/evaporite.Limestone (calcite, aragonite)
+Earth.Geology.Rocks.Sedimentary.Chemical/evaporiteGypsum
+Earth.Geology.Rocks.Sedimentary.Chemical/evaporiteHalite (rock salt)
+Earth.Geology.Rocks.Sedimentary.Chemical/evaporiteChert
+Earth.Geology.Rocks.Sedimentary.Organic.Coal (lignite, bituminous, anthracite)
+Earth.Geology.Rocks.Metamorphic.Low-grade.Schist
+Earth.Geology.Rocks.Metamorphic.Low-grade.Slate
+Earth.Geology.Rocks.Metamorphic.Low-grade.Phyllite
+Earth.Geology.Rocks.Metamorphic.High-grade.Gneiss
+Earth.Geology.Rocks.Metamorphic.High-grade.Quartzite
+Earth.Geology.Rocks.Metamorphic.High-grade.Marble (metamorphosed limestone)
+Earth.Geology.Rocks.Metamorphic.High-grade.Amphibolite
+Earth.Geology.Rocks.Metamorphic.High-grade.Eclogite
+Earth.Geology.Rocks.Metamorphic.Contact-metamorphic.Hornfels
+Earth.Geology.Rocks.Metamorphic.Contact-metamorphic.Skarn
+Earth.Geology.TectonicPlates
+Earth.Geology.Erosion
+Earth.Geology.FaultLines
+Earth.Geology.Volcanoes.Mount Stromboli
+Earth.Geology.Volcanoes.Mount Etna
+Earth.Geology.Volcanoes.Mount Fuji
+Earth.Geology.Volcanoes.Mount Pinatubo
+Earth.Geology.Volcanoes.Mount Vesuvius
+Earth.Geology.Volcanoes.Mount Krakatau
+Earth.Geology.Volcanoes.Mount Kilauea
+Earth.Geology.Volcanoes.Mount Mauna Loa
+Earth.Geology.Volcanoes.Mount Taal
+Earth.Geology.Volcanoes.Mount Sierra Nevada
+Earth.Geology.Volcanoes.Mount Bromo
+Earth.Geology.Volcanoes.Mount Merapi
+Earth.Geology.Volcanoes.Mount Nyiragongo
+Earth.Geology.Volcanoes.Mount Puy de Dôme
+Earth.Geology.Volcanoes.Mount Warna
+Earth.Geology.Volcanoes.Mount Mayon
+Earth.Geology.Volcanoes.Mount Saitama
+Earth.Geology.Volcanoes.Mount El Chichón
+Earth.Geology.Volcanoes.Mount Mayas
+Earth.Geology.Volcanoes.Mount Yamal
+Earth.Geology.Volcanoes.Mount Sahara
+Earth.Geology.Volcanoes.Mount Aso
+Earth.Geology.Volcanoes.Mount Huascarán
+Earth.Geology.Volcanoes.Mount Aira
+Earth.Geology.Volcanoes.Mount Haitian Volcano
+Earth.Geology.Volcanoes.Mount Hekla
+Earth.Geology.Volcanoes.Mount Redoubt
+Earth.Geology.Volcanoes.Mount Novarupta
+Earth.Geology.Volcanoes.Mount Kangchenjunga
+Earth.Geography.Countries.Afghanistan
+Earth.Geography.Countries.Albania
+Earth.Geography.Countries.Algeria
+Earth.Geography.Countries.Andorra
+Earth.Geography.Countries.Angola
+Earth.Geography.Countries.Antigua and Barbuda
+Earth.Geography.Countries.Argentina
+Earth.Geography.Countries.Armenia
+Earth.Geography.Countries.Australia
+Earth.Geography.Countries.Austria
+Earth.Geography.Countries.Azerbaijan
+Earth.Geography.Countries.Bahamas
+Earth.Geography.Countries.Bahrain
+Earth.Geography.Countries.Bangladesh
+Earth.Geography.Countries.Barbados
+Earth.Geography.Countries.Belarus
+Earth.Geography.Countries.Belgium
+Earth.Geography.Countries.Belize
+Earth.Geography.Countries.Benin
+Earth.Geography.Countries.Bhutan
+Earth.Geography.Countries.Bolivia (Plurinational State of)
+Earth.Geography.Countries.Bosnia and Herzegovina
+Earth.Geography.Countries.Botswana
+Earth.Geography.Countries.Brazil
+Earth.Geography.Countries.Brunei Darussalam
+Earth.Geography.Countries.Bulgaria
+Earth.Geography.Countries.Burkina Faso
+Earth.Geography.Countries.Burundi
+Earth.Geography.Countries.Cabo Verde
+Earth.Geography.Countries.Cambodia
+Earth.Geography.Countries.Cameroon
+Earth.Geography.Countries.Canada
+Earth.Geography.Countries.Central African Republic
+Earth.Geography.Countries.Chad
+Earth.Geography.Countries.Chile
+Earth.Geography.Countries.China
+Earth.Geography.Countries.Colombia
+Earth.Geography.Countries.Comoros
+Earth.Geography.Countries.Congo (Republic of the)
+Earth.Geography.Countries.Congo (Democratic Republic of the)
+Earth.Geography.Countries.Costa Rica
+Earth.Geography.Countries.Côte d'Ivoire
+Earth.Geography.Countries.Croatia
+Earth.Geography.Countries.Cuba
+Earth.Geography.Countries.Cyprus
+Earth.Geography.Countries.Czech Republic
+Earth.Geography.Countries.Denmark
+Earth.Geography.Countries.Djibouti
+Earth.Geography.Countries.Dominica
+Earth.Geography.Countries.Dominican Republic
+Earth.Geography.Countries.Ecuador
+Earth.Geography.Countries.Egypt
+Earth.Geography.Countries.El Salvador
+Earth.Geography.Countries.Equatorial Guinea
+Earth.Geography.Countries.Eritrea
+Earth.Geography.Countries.Estonia
+Earth.Geography.Countries.Eswatini
+Earth.Geography.Countries.Ethiopia
+Earth.Geography.Countries.Fiji
+Earth.Geography.Countries.Finland
+Earth.Geography.Countries.France
+Earth.Geography.Countries.Gabon
+Earth.Geography.Countries.Gambia
+Earth.Geography.Countries.Georgia
+Earth.Geography.Countries.Germany
+Earth.Geography.Countries.Ghana
+Earth.Geography.Countries.Greece
+Earth.Geography.Countries.Grenada
+Earth.Geography.Countries.Guatemala
+Earth.Geography.Countries.Guinea
+Earth.Geography.Countries.Guinea‑Bissau
+Earth.Geography.Countries.Guyana
+Earth.Geography.Countries.Haiti
+Earth.Geography.Countries.Holy See (Vatican City) – Observer
+Earth.Geography.Countries.Honduras
+Earth.Geography.Countries.Hungary
+Earth.Geography.Countries.Iceland
+Earth.Geography.Countries.India
+Earth.Geography.Countries.Indonesia
+Earth.Geography.Countries.Iran (Islamic Republic of)
+Earth.Geography.Countries.Iraq
+Earth.Geography.Countries.Ireland
+Earth.Geography.Countries.Israel
+Earth.Geography.Countries.Italy
+Earth.Geography.Countries.Jamaica
+Earth.Geography.Countries.Japan
+Earth.Geography.Countries.Jordan
+Earth.Geography.Countries.Kazakhstan
+Earth.Geography.Countries.Kenya
+Earth.Geography.Countries.Kiribati
+Earth.Geography.Countries.Kuwait
+Earth.Geography.Countries.Kyrgyzstan
+Earth.Geography.Countries.Lao PDR (People’s Democratic Republic of)
+Earth.Geography.Countries.Latvia
+Earth.Geography.Countries.Lebanon
+Earth.Geography.Countries.Lesotho
+Earth.Geography.Countries.Liberia
+Earth.Geography.Countries.Libya
+Earth.Geography.Countries.Liechtenstein
+Earth.Geography.Countries.Lithuania
+Earth.Geography.Countries.Luxembourg
+Earth.Geography.Countries.Madagascar
+Earth.Geography.Countries.Malawi
+Earth.Geography.Countries.Malaysia
+Earth.Geography.Countries.Maldives
+Earth.Geography.Countries.Mali
+Earth.Geography.Countries.Malta
+Earth.Geography.Countries.Marshall Islands
+Earth.Geography.Countries.Mauritania
+Earth.Geography.Countries.Mauritius
+Earth.Geography.Countries.Mexico
+Earth.Geography.Countries.Micronesia
+Earth.Geography.Countries.Moldova
+Earth.Geography.Countries.Monaco
+Earth.Geography.Countries.Mongolia
+Earth.Geography.Countries.Montenegro
+Earth.Geography.Countries.Morocco
+Earth.Geography.Countries.Mozambique
+Earth.Geography.Countries.Myanmar
+Earth.Geography.Countries.Namibia
+Earth.Geography.Countries.Nauru
+Earth.Geography.Countries.Nepal
+Earth.Geography.Countries.Netherlands
+Earth.Geography.Countries.New Zealand
+Earth.Geography.Countries.Nicaragua
+Earth.Geography.Countries.Niger
+Earth.Geography.Countries.Nigeria
+Earth.Geography.Countries.North Korea
+Earth.Geography.Countries.North Macedonia
+Earth.Geography.Countries.Norway
+Earth.Geography.Countries.Oman
+Earth.Geography.Countries.Pakistan
+Earth.Geography.Countries.Palau
+Earth.Geography.Countries.Panama
+Earth.Geography.Countries.Papua New Guinea
+Earth.Geography.Countries.Paraguay
+Earth.Geography.Countries.Peru
+Earth.Geography.Countries.Philippines
+Earth.Geography.Countries.Poland
+Earth.Geography.Countries.Portugal
+Earth.Geography.Countries.Qatar
+Earth.Geography.Countries.Romania
+Earth.Geography.Countries.Russia
+Earth.Geography.Countries.Rwanda
+Earth.Geography.Countries.Saint Kitts and Nevis
+Earth.Geography.Countries.Saint Lucia
+Earth.Geography.Countries.Saint Vincent and the Grenadines
+Earth.Geography.Countries.Samoa
+Earth.Geography.Countries.San Marino
+Earth.Geography.Countries.Sao Tome and Principe
+Earth.Geography.Countries.Saudi Arabia
+Earth.Geography.Countries.Senegal
+Earth.Geography.Countries.Serbia
+Earth.Geography.Countries.Seychelles
+Earth.Geography.Countries.Sierra Leone
+Earth.Geography.Countries.Singapore
+Earth.Geography.Countries.Slovakia
+Earth.Geography.Countries.Slovenia
+Earth.Geography.Countries.Solomon Islands
+Earth.Geography.Countries.Somalia
+Earth.Geography.Countries.South Africa
+Earth.Geography.Countries.South Korea
+Earth.Geography.Countries.South Sudan
+Earth.Geography.Countries.Spain
+Earth.Geography.Countries.Sri Lanka
+Earth.Geography.Countries.Sudan
+Earth.Geography.Countries.Suriname
+Earth.Geography.Countries.Sweden
+Earth.Geography.Countries.Switzerland
+Earth.Geography.Countries.Syrian Arab Republic
+Earth.Geography.Countries.Tajikistan
+Earth.Geography.Countries.Tanzania
+Earth.Geography.Countries.Thailand
+Earth.Geography.Countries.Timor Leste 
+Earth.Geography.Countries.Togo
+Earth.Geography.Countries.Tonga
+Earth.Geography.Countries.Trinidad and Tobago
+Earth.Geography.Countries.Tunisia
+Earth.Geography.Countries.Turkey
+Earth.Geography.Countries.Turkmenistan
+Earth.Geography.Countries.Tuvalu
+Earth.Geography.Countries.Uganda
+Earth.Geography.Countries.Ukraine
+Earth.Geography.Countries.United Arab Emirates
+Earth.Geography.Countries.United Kingdom
+Earth.Geography.Countries.United States of America
+Earth.Geography.Countries.Uruguay
+Earth.Geography.Countries.Uzbekistan
+Earth.Geography.Countries.Vanuatu
+Earth.Geography.Countries.Venezuela
+Earth.Geography.Countries.Vietnam
+Earth.Geography.Countries.Yemen
+Earth.Geography.Countries.Zambia
+Earth.Geography.Countries.Zimbabwe
+Earth.Atmosphere.GasComposition
+Earth.Atmosphere.ClimateZones
+Earth.Atmosphere.ChemicalLayers
+Earth.Atmosphere.Thermosphere
+Earth.Atmosphere.OzoneLayer
+Earth.Atmosphere.AirPressure
+Earth.Atmosphere.RainfallPatterns
+Earth.Hydrosphere.Oceans.Pacific Ocean
+Earth.Hydrosphere.Oceans.Atlantic Ocean
+Earth.Hydrosphere.Oceans.Indian Ocean
+Earth.Hydrosphere.Oceans.Antarctic Ocean
+Earth.Hydrosphere.Oceans.Arctic Ocean
+Earth.Hydrosphere.Oceans.OpenOcean
+Earth.Hydrosphere.Oceans.Shelf
+Earth.Hydrosphere.Lakes.Caspian Sea
+Earth.Hydrosphere.Lakes.Lake Superior
+Earth.Hydrosphere.Lakes.Lake Victoria
+Earth.Hydrosphere.Lakes.Lake Huron
+Earth.Hydrosphere.Lakes.Lake Michigan
+Earth.Hydrosphere.Lakes.Lake Tanganyika
+Earth.Hydrosphere.Lakes.Lake Baikal
+Earth.Hydrosphere.Lakes.Great Bear Lake
+Earth.Hydrosphere.Lakes.Great Slave Lake
+Earth.Hydrosphere.Lakes.Lake Malawi
+Earth.Hydrosphere.Lakes.Lake Ontario
+Earth.Hydrosphere.Lakes.Lake Erie
+Earth.Hydrosphere.Lakes.Lake Ladoga
+Earth.Hydrosphere.Lakes.Lake Onega
+Earth.Hydrosphere.Lakes.Lake Winnipeg
+Earth.Hydrosphere.Lakes.Lake Nicaragua
+Earth.Hydrosphere.Lakes.Lake Titicaca
+Earth.Hydrosphere.Lakes.Lake Tahoe
+Earth.Hydrosphere.Lakes.Lake Michigan
+Earth.Hydrosphere.Lakes.Lake Tahoe
+Earth.Hydrosphere.Rivers
+Earth.Hydrosphere.IceCaps
+Earth.Hydrosphere.SaltContent
+Earth.Hydrosphere.WaterCycle
+Earth.Ecology.Ecosystems.Forests
+Earth.Ecology.Ecosystems.Deserts
+Earth.Ecology.Ecosystems.TropicalRainforests
+Earth.Ecology.Ecosystems.Grasslands
+Earth.Ecology.Biomes
+Earth.Ecology.NutrientCycles
+Earth.Ecology.PredatorPreyDynamics
+Earth.Ecology.PopulationDynamics
+Earth.Astronomy.SolarSystem.Planets.Venus
+Earth.Astronomy.SolarSystem.Planets.Jupyter
+Earth.Astronomy.SolarSystem.Planets.Uranus
+Earth.Astronomy.SolarSystem.Planets.Saturn
+Earth.Astronomy.SolarSystem.Planets.Mars
+Earth.Astronomy.SolarSystem.Planets.Mercur
+Earth.Astronomy.SolarSystem.Planets.Earth
+Earth.Astronomy.SolarSystem.Stars.Sun
+Earth.Astronomy.Satellites
+Earth.Astronomy.Observations
+Earth.Astronomy.Astrophysics
+Earth.Astronomy.Telescopes
+Earth.Astronomy.CosmicEvents
+Earth.Culture.Languages.English
+Earth.Culture.Languages.Mandarin Chinese
+Earth.Culture.Languages.Hindi
+Earth.Culture.Languages.Spanish
+Earth.Culture.Languages.French
+Earth.Culture.Languages.Arabic
+Earth.Culture.Languages.Bengali
+Earth.Culture.Languages.Russian
+Earth.Culture.Languages.Portuguese
+Earth.Culture.Languages.Urdu
+Earth.Culture.Languages.German
+Earth.Culture.Languages.Japanese
+Earth.Culture.Languages.Korean
+Earth.Culture.Languages.Swahili
+Earth.Culture.Languages.Turkish
+Earth.Culture.Languages.Vietnamese
+Earth.Culture.Languages.Thai
+Earth.Culture.Languages.Persian
+Earth.Culture.Languages.Polish
+Earth.Culture.Languages.Hungarian
+Earth.Culture.Languages.Dutch
+Earth.Culture.Languages.Italian
+Earth.Culture.Languages.Greek
+Earth.Culture.Languages.Hebrew
+Earth.Culture.Languages.Hindi
+Earth.Culture.Languages.Arabic
+Earth.Culture.Languages.Russian
+Earth.Culture.Languages.Urdu
+Earth.Culture.Languages.Punjabi
+Earth.Culture.Languages.Tamil
+Earth.Culture.Languages.Telugu
+Earth.Culture.Languages.Kannada
+Earth.Culture.Languages.Burmese
+Earth.Culture.Languages.Amharic
+Earth.Culture.Languages.Bengali
+Earth.Culture.Languages.Gujarati
+Earth.Culture.Languages.Malayalam
+Earth.Culture.Languages.Kannada
+Earth.Culture.Languages.Marathi
+Earth.Culture.Languages.Oriya
+Earth.Culture.Languages.Punjabi
+Earth.Culture.Languages.Assamese
+Earth.Culture.Languages.Bhojpuri
+Earth.Culture.Languages.Punjabi
+Earth.Culture.Languages.Kashmiri
+Earth.Culture.Arts.Visual.Painting (oil, acrylic, watercolor, fresco, etc.)
+Earth.Culture.Arts.Visual.Drawing & Sketching (pencil, charcoal, ink)
+Earth.Culture.Arts.Visual.Sculpture (bronze, marble, wood, metal, mixed media)
+Earth.Culture.Arts.Visual.Printmaking (etching, lithography, screen‑printing)
+Earth.Culture.Arts.Visual.Photography (film, digital, black‑and‑white, experimental)
+Earth.Culture.Arts.Visual.Digital & New Media Art (interactive installations, VR/AR)
+Earth.Culture.Arts.Visual.Graphic Design (typography, branding, web design)
+Earth.Culture.Arts.Visual.Illustration (book, editorial, concept art)
+Earth.Culture.Arts.Visual.Video & Film (short, feature, documentary, experimental)
+Earth.Culture.Arts.Visual.Installation & Performance Art (site‑specific works)
+Earth.Culture.Arts.Performing.Theatre (drama, musical theatre, experimental)
+Earth.Culture.Arts.Performing.Dance (ballet, contemporary, folk, hip‑hop, modern)
+Earth.Culture.Arts.Performing.Music (classical, jazz, folk, electronic, world music)
+Earth.Culture.Arts.Performing.Opera & Oratorio
+Earth.Culture.Arts.Performing.Choral & Vocal Performance
+Earth.Culture.Arts.Performing.Circus & Street Performance
+Earth.Culture.Arts.Performing.Spoken Word & Poetry Slams
+Earth.Culture.Arts.Literary.Poetry (traditional, spoken, slam)
+Earth.Culture.Arts.Literary.Prose (novels, short stories, novellas)
+Earth.Culture.Arts.Literary.Drama & Playwriting
+Earth.Culture.Arts.Literary.Creative Non‑fiction (memoir, essays, journalism)
+Earth.Culture.Arts.Literary.Translation & Comparative Literature
+Earth.Culture.Arts.Applied & Decorative.Architecture & Urban Design
+Earth.Culture.Arts.Applied & Decorative.Interior Design & Architecture
+Earth.Culture.Arts.Applied & Decorative.Landscape Architecture
+Earth.Culture.Arts.Applied & Decorative.Industrial Design (product, automotive, consumer goods)
+Earth.Culture.Arts.Applied & Decorative.Fashion & Textile Design
+Earth.Culture.Arts.Applied & Decorative.Jewelry & Metalwork
+Earth.Culture.Arts.Applied & Decorative.Ceramics & Pottery
+Earth.Culture.Arts.Applied & Decorative.Glassblowing & Pyrography
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Performance‑Based Visuals (video theatre, multimedia concerts)
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Sound Art & Sonic Design
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Digital Storytelling & Game Design
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Experimental Film & Video Games as Art
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Cross‑media Collaborations (e.g., artist‑scientist projects)
+Earth.Culture.Sciences.Physical.Physics
+Earth.Culture.Sciences.Physical.Chemistry
+Earth.Culture.Sciences.Physical.Astronomy
+Earth.Culture.Sciences.Physical.Geology
+Earth.Culture.Sciences.Physical.Meteorology
+Earth.Culture.Sciences.Physical.Oceanography
+Earth.Culture.Sciences.Life.Biology
+Earth.Culture.Sciences.Life.Ecology & Environmental Science
+Earth.Culture.Sciences.Life.Botany & Plant Sciences
+Earth.Culture.Sciences.Life.Zoology & Animal Sciences
+Earth.Culture.Sciences.Life.Physiology & Neuroscience
+Earth.Culture.Sciences.Life.Genetics & Genomics
+Earth.Culture.Sciences.Life.Biotechnology & Bioengineering
+Earth.Culture.Sciences.Earth & Earth System.Geophysics
+Earth.Culture.Sciences.Earth & Earth System.Geodesy & Cartography
+Earth.Culture.Sciences.Earth & Earth System.Hydrology
+Earth.Culture.Sciences.Earth & Earth System.Seismology
+Earth.Culture.Sciences.Earth & Earth System.Volcanology
+Earth.Culture.Sciences.Applied & Engineering.Mechanical Engineering
+Earth.Culture.Sciences.Applied & Engineering.Electrical & Electronics Engineering
+Earth.Culture.Sciences.Applied & Engineering.Civil Engineering
+Earth.Culture.Sciences.Applied & Engineering.Chemical Engineering
+Earth.Culture.Sciences.Applied & Engineering.Materials Science
+Earth.Culture.Sciences.Applied & Engineering.Computer Science & Information Technology
+Earth.Culture.Sciences.Applied & Engineering.Aerospace Engineering
+Earth.Culture.Sciences.Applied & Engineering.Biomedical Engineering
+Earth.Culture.Sciences.Social.Psychology
+Earth.Culture.Sciences.Social.Sociology
+Earth.Culture.Sciences.Social.Anthropology
+Earth.Culture.Sciences.Social.Economics
+Earth.Culture.Sciences.Social.Political Science
+Earth.Culture.Sciences.Social.Geography
+Earth.Culture.Sciences.Social.Linguistics
+Earth.Culture.Sciences.Social.Humanities & Interdisciplinary Studies
+Earth.Culture.Sciences.History.Philosophy
+Earth.Culture.Sciences.History.Art History & Visual Studies
+Earth.Culture.Sciences.History.Cultural Studies
+Earth.Culture.Sciences.History.Archaeology
+Earth.Culture.Sciences.History.Religious Studies
+Earth.Culture.Sciences.History.Cross Disciplinary / Emerging Fields
+Earth.Culture.Sciences.Data Science & Statistics.Artificial Intelligence & Machine Learning
+Earth.Culture.Sciences.Data Science & Statistics.Robotics & Automation
+Earth.Culture.Sciences.Data Science & Statistics.Climate Science & Climate Change Mitigation
+Earth.Culture.Sciences.Data Science & Statistics.Nanotechnology
+Earth.Culture.Sciences.Data Science & Statistics.Bioinformatics
+Earth.Culture.Sciences.Data Science & Statistics.Quantum Computing
+Earth.Culture.Sciences.Data Science & Statistics.Sustainable Development & Renewable Energy
+Earth.Culture.Religions.Christianity
+Earth.Culture.Religions.Islam
+Earth.Culture.Religions.Hinduism
+Earth.Culture.Religions.Buddhism
+Earth.Culture.Religions.Sikhism
+Earth.Culture.Religions.Judaism
+Earth.Culture.Religions.Jainism
+Earth.Culture.Religions.Shinto
+Earth.Culture.Religions.Taoism
+Earth.Culture.Religions.Confucianism
+Earth.Culture.Religions.Zoroastrianism
+Earth.Culture.Religions.Yoruba
+Earth.Culture.Religions.Santería
+Earth.Culture.Religions.Vodou
+Earth.Culture.Religions.Animism
+Earth.Culture.Religions.Rastafarianism
+Earth.Culture.Religions.Candomblé
+Earth.Culture.Religions.Umbanda
+Earth.Culture.Religions.Hellenism
+Earth.Culture.Religions.Druidry
+Earth.Culture.Foods
+Earth.Culture.Technologies
+Earth.Culture.Ethics
+Earth.History
