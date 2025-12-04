@@ -1,6 +1,7 @@
 pub mod segmented_trie_set;
 pub mod segmented_trie_string_set;
 pub mod segmented_trie_string_set_flat;
+pub mod flat_set;
 
 /// Unique identifier type for trie terminal nodes.
 ///
