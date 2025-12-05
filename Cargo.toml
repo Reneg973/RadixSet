@@ -5,10 +5,11 @@ edition = "2024"
 
 [dependencies]
 flat_map = "0.0.10"
+typed-arena = "2.0.2"
 
 [dev-dependencies]
 criterion = "0.8.0"
-rand = "0.8.5"
+rand = "0.9.2"
 
 [[bench]]
 name = "segmented_trie_bench"
@@ -19,6 +20,4 @@ name = "radixset"
 path = "src/lib.rs"
 
 [features]
-# When enabled, SegmentedTrieSet will use std::collections::BTreeSet for children
-# storage instead of the default FlatSet.
-btreeset_children = []
+flat_map_children = []

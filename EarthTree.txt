@@ -16,10 +16,34 @@ Earth.Physics.ThermalConductivity
 Earth.Physics.CentrifugalForce
 Earth.Physics.ElectromagneticSpectrum
 Earth.Physics.Radiation
-Earth.Biology.Lifeforms.Animals.Mammals
+Earth.Biology.Lifeforms.Animals.Mammals.Monotremata.Ornithorhynchus
+Earth.Biology.Lifeforms.Animals.Mammals.Monotremata.Tachyglossus
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Didelphimorphia
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Paucituberculata
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Microbiotheria
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Notoryctemorphia
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Vombatiformes
+Earth.Biology.Lifeforms.Animals.Mammals.Marsupialia.Diprotodontia
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Afrosoricida
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Macroscelidea
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Tubulidentata
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Hyracoidea
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Proboscidea
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Primates
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Rodentia
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Lagomorpha
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Sirenia
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Pilosa
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Cingulata
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Chiroptera
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Dermoptera
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Perissodactyla
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Artiodactyla
+Earth.Biology.Lifeforms.Animals.Mammals.Placentalia.Eulipotyphla
 Earth.Biology.Lifeforms.Animals.Reptiles
 Earth.Biology.Lifeforms.Animals.Birds
 Earth.Biology.Lifeforms.Animals.Fishes
+Earth.Biology.Lifeforms.Animals.Insects
 Earth.Biology.Lifeforms.Plants
 Earth.Biology.Lifeforms.Fungi
 Earth.Biology.Lifeforms.Bacteria.Firmicutes.Streptococcus
@@ -113,8 +137,7 @@ Earth.Geology.Volcanoes.Mount Haitian Volcano
 Earth.Geology.Volcanoes.Mount Hekla
 Earth.Geology.Volcanoes.Mount Redoubt
 Earth.Geology.Volcanoes.Mount Novarupta
-Earth.Geology.Volcanoes.Mount Kangchenjunga (India/Nepal) – glaciated volcanic peak, monitored for activity  
-
+Earth.Geology.Volcanoes.Mount Kangchenjunga
 Earth.Geography.Countries.Afghanistan
 Earth.Geography.Countries.Albania
 Earth.Geography.Countries.Algeria
@@ -387,6 +410,7 @@ Earth.Culture.Languages.Vietnamese
 Earth.Culture.Languages.Thai
 Earth.Culture.Languages.Persian
 Earth.Culture.Languages.Polish
+Earth.Culture.Languages.Hungarian
 Earth.Culture.Languages.Dutch
 Earth.Culture.Languages.Italian
 Earth.Culture.Languages.Greek
@@ -412,8 +436,88 @@ Earth.Culture.Languages.Assamese
 Earth.Culture.Languages.Bhojpuri
 Earth.Culture.Languages.Punjabi
 Earth.Culture.Languages.Kashmiri
-Earth.Culture.Arts
-Earth.Culture.Sciences
+Earth.Culture.Arts.Visual.Painting (oil, acrylic, watercolor, fresco, etc.)
+Earth.Culture.Arts.Visual.Drawing & Sketching (pencil, charcoal, ink)
+Earth.Culture.Arts.Visual.Sculpture (bronze, marble, wood, metal, mixed media)
+Earth.Culture.Arts.Visual.Printmaking (etching, lithography, screen‑printing)
+Earth.Culture.Arts.Visual.Photography (film, digital, black‑and‑white, experimental)
+Earth.Culture.Arts.Visual.Digital & New Media Art (interactive installations, VR/AR)
+Earth.Culture.Arts.Visual.Graphic Design (typography, branding, web design)
+Earth.Culture.Arts.Visual.Illustration (book, editorial, concept art)
+Earth.Culture.Arts.Visual.Video & Film (short, feature, documentary, experimental)
+Earth.Culture.Arts.Visual.Installation & Performance Art (site‑specific works)
+Earth.Culture.Arts.Performing.Theatre (drama, musical theatre, experimental)
+Earth.Culture.Arts.Performing.Dance (ballet, contemporary, folk, hip‑hop, modern)
+Earth.Culture.Arts.Performing.Music (classical, jazz, folk, electronic, world music)
+Earth.Culture.Arts.Performing.Opera & Oratorio
+Earth.Culture.Arts.Performing.Choral & Vocal Performance
+Earth.Culture.Arts.Performing.Circus & Street Performance
+Earth.Culture.Arts.Performing.Spoken Word & Poetry Slams
+Earth.Culture.Arts.Literary.Poetry (traditional, spoken, slam)
+Earth.Culture.Arts.Literary.Prose (novels, short stories, novellas)
+Earth.Culture.Arts.Literary.Drama & Playwriting
+Earth.Culture.Arts.Literary.Creative Non‑fiction (memoir, essays, journalism)
+Earth.Culture.Arts.Literary.Translation & Comparative Literature
+Earth.Culture.Arts.Applied & Decorative.Architecture & Urban Design
+Earth.Culture.Arts.Applied & Decorative.Interior Design & Architecture
+Earth.Culture.Arts.Applied & Decorative.Landscape Architecture
+Earth.Culture.Arts.Applied & Decorative.Industrial Design (product, automotive, consumer goods)
+Earth.Culture.Arts.Applied & Decorative.Fashion & Textile Design
+Earth.Culture.Arts.Applied & Decorative.Jewelry & Metalwork
+Earth.Culture.Arts.Applied & Decorative.Ceramics & Pottery
+Earth.Culture.Arts.Applied & Decorative.Glassblowing & Pyrography
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Performance‑Based Visuals (video theatre, multimedia concerts)
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Sound Art & Sonic Design
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Digital Storytelling & Game Design
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Experimental Film & Video Games as Art
+Earth.Culture.Arts.Multidisciplinary & Hybrid.Cross‑media Collaborations (e.g., artist‑scientist projects)
+Earth.Culture.Sciences.Physical.Physics
+Earth.Culture.Sciences.Physical.Chemistry
+Earth.Culture.Sciences.Physical.Astronomy
+Earth.Culture.Sciences.Physical.Geology
+Earth.Culture.Sciences.Physical.Meteorology
+Earth.Culture.Sciences.Physical.Oceanography
+Earth.Culture.Sciences.Life.Biology
+Earth.Culture.Sciences.Life.Ecology & Environmental Science
+Earth.Culture.Sciences.Life.Botany & Plant Sciences
+Earth.Culture.Sciences.Life.Zoology & Animal Sciences
+Earth.Culture.Sciences.Life.Physiology & Neuroscience
+Earth.Culture.Sciences.Life.Genetics & Genomics
+Earth.Culture.Sciences.Life.Biotechnology & Bioengineering
+Earth.Culture.Sciences.Earth & Earth System.Geophysics
+Earth.Culture.Sciences.Earth & Earth System.Geodesy & Cartography
+Earth.Culture.Sciences.Earth & Earth System.Hydrology
+Earth.Culture.Sciences.Earth & Earth System.Seismology
+Earth.Culture.Sciences.Earth & Earth System.Volcanology
+Earth.Culture.Sciences.Applied & Engineering.Mechanical Engineering
+Earth.Culture.Sciences.Applied & Engineering.Electrical & Electronics Engineering
+Earth.Culture.Sciences.Applied & Engineering.Civil Engineering
+Earth.Culture.Sciences.Applied & Engineering.Chemical Engineering
+Earth.Culture.Sciences.Applied & Engineering.Materials Science
+Earth.Culture.Sciences.Applied & Engineering.Computer Science & Information Technology
+Earth.Culture.Sciences.Applied & Engineering.Aerospace Engineering
+Earth.Culture.Sciences.Applied & Engineering.Biomedical Engineering
+Earth.Culture.Sciences.Social.Psychology
+Earth.Culture.Sciences.Social.Sociology
+Earth.Culture.Sciences.Social.Anthropology
+Earth.Culture.Sciences.Social.Economics
+Earth.Culture.Sciences.Social.Political Science
+Earth.Culture.Sciences.Social.Geography
+Earth.Culture.Sciences.Social.Linguistics
+Earth.Culture.Sciences.Social.Humanities & Interdisciplinary Studies
+Earth.Culture.Sciences.History.Philosophy
+Earth.Culture.Sciences.History.Art History & Visual Studies
+Earth.Culture.Sciences.History.Cultural Studies
+Earth.Culture.Sciences.History.Archaeology
+Earth.Culture.Sciences.History.Religious Studies
+Earth.Culture.Sciences.History.Cross Disciplinary / Emerging Fields
+Earth.Culture.Sciences.Data Science & Statistics.Artificial Intelligence & Machine Learning
+Earth.Culture.Sciences.Data Science & Statistics.Robotics & Automation
+Earth.Culture.Sciences.Data Science & Statistics.Climate Science & Climate Change Mitigation
+Earth.Culture.Sciences.Data Science & Statistics.Nanotechnology
+Earth.Culture.Sciences.Data Science & Statistics.Bioinformatics
+Earth.Culture.Sciences.Data Science & Statistics.Quantum Computing
+Earth.Culture.Sciences.Data Science & Statistics.Sustainable Development & Renewable Energy
 Earth.Culture.Religions.Christianity
 Earth.Culture.Religions.Islam
 Earth.Culture.Religions.Hinduism
