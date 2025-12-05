@@ -1,8 +1,10 @@
+#[cfg(feature = "flat_map_children")]
 use flat_map::FlatMap;
+
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+#[cfg(not(feature = "flat_map_children"))]
 use std::collections::BTreeMap;
-use std::collections::btree_map::Entry;
 use std::fmt;
 use typed_arena::Arena;
 
@@ -62,6 +64,19 @@ pub enum InsertError {
     InvalidArg,
     KeyAlreadyInserted,
 }
+
+// cfg-driven children map type: FlatMap when feature "flat_map_children" is enabled,
+// otherwise BTreeMap.
+#[cfg(feature = "flat_map_children")]
+type Children<K, V> = FlatMap<K, V>;
+#[cfg(not(feature = "flat_map_children"))]
+type Children<K, V> = BTreeMap<K, V>;
+
+// cfg-driven constructor for the concrete map
+#[cfg(feature = "flat_map_children")]
+fn children_new<K: Ord, V>() -> Children<K, V> { FlatMap::new() }
+#[cfg(not(feature = "flat_map_children"))]
+fn children_new<K: Ord, V>() -> Children<K, V> { BTreeMap::new() }
 
 // Simplify: no container family generics here; use BTreeMap for children.
 // Children map: key = Key (pointer into arena), value = Box<Node>
@@ -153,13 +168,13 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
                     let key_ptr = Key(arena_seg.as_str() as *const str);
                     let parent_ptr = cur_node as *const _;
 
-                    match cur_node.children.entry(key_ptr) {
-                        Entry::Occupied(_) => Err(InsertError::InvalidArg),
-                        Entry::Vacant(v) => {
-                            let new_ref = v.insert(Box::new(Node::new_with_parent(parent_ptr, key_ptr)));
-                            Ok(&mut **new_ref as *mut Node)
-                        }
-                    }
+                    // Insert then lookup so both map implementations work
+                    cur_node.children.insert(key_ptr, Box::new(Node::new_with_parent(parent_ptr, key_ptr)));
+                    cur_node
+                        .children
+                        .get(seg)
+                        .map(|b| &**b as *const Node as *mut Node)
+                        .ok_or(InsertError::InvalidArg)
             })
         });
         let cur_ptr = res?;
@@ -183,7 +198,7 @@ static ROOT_EMPTY_KEY: &str = "";
 struct Node {
     parent: Option<*const Node>,
     key: Key, // pointer into arena (or static empty for root)
-    children: BTreeMap<Key, Box<Node>>,
+    children: Children<Key, Box<Node>>,
     is_leaf: bool,
 }
 
@@ -201,7 +216,7 @@ impl Node {
         Self {
             parent: None,
             key: Key::from_static(ROOT_EMPTY_KEY),
-            children: BTreeMap::new(),
+            children: children_new(),
             is_leaf: false,
         }
     }
@@ -209,7 +224,7 @@ impl Node {
         Self {
             parent: Some(parent),
             key,
-            children: BTreeMap::new(),
+            children: children_new(),
             is_leaf: false,
         }
     }
@@ -346,8 +361,14 @@ impl<const DELIMITER: char> IntoIterator for &SegmentedTrieSet<DELIMITER> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "flat_map_children")]
+fn cfg_out() { println!("flat_map_children feature is enabled"); }
+#[cfg(not(feature = "flat_map_children"))]
+fn cfg_out() { println!("flat_map_children feature is NOT enabled"); }
+
     #[test]
     fn insert_find_contains_basic() {
+        cfg_out();
         let mut trie = SegmentedTrieSet::<'/'>::new();
         let id_a = trie.insert("a").unwrap();
         let id_ab = trie.insert("a/b").unwrap();

@@ -20,6 +20,4 @@ name = "radixset"
 path = "src/lib.rs"
 
 [features]
-# When enabled, SegmentedTrieSet will use std::collections::BTreeSet for children
-# storage instead of the default FlatSet.
-btreeset_children = []
+flat_map_children = []
