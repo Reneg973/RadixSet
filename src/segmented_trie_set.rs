@@ -5,7 +5,7 @@ use core::fmt;
 /// Each value is split into 8 bytes from most significant to least significant.
 /// Nodes only get created as needed. Removal prunes empty branches.
 #[derive(Default)]
-pub struct SegmentedTrieSet {
+struct SegmentedTrieSet {
     root: Node,
     len: usize,
 }

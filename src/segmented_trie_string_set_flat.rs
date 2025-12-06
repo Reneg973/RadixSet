@@ -5,14 +5,14 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 #[cfg(not(feature = "flat_map_children"))]
 use std::collections::BTreeMap;
-use std::{fmt, ptr};
+use std::fmt;
 use std::ptr::NonNull;
 use typed_arena::Arena;
 
 ///////////////////////////////////////////////////////////////////////
 // pub types
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NodeId(usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -199,7 +199,7 @@ impl Node {
     fn from(id: NodeId) -> Option<*const Node> {
         (id.0 != 0).then_some(id.0 as *const Node)
     }
-    
+
     fn key(&self, d: char) -> Option<String> {
         // Reconstruct by walking parents
         let mut parts: Vec<&str> = std::iter::successors(Some(self), |&p| p.get_parent() )
