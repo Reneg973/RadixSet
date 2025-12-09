@@ -1,13 +1,17 @@
 #[cfg(feature = "flat_map_children")]
-use flat_map::FlatMap;
+use litemap::LiteMap;
+#[cfg(feature = "flat_map_children")]
+use litemap::store::Store;
+#[cfg(feature = "flat_map_children")]
+use litemap::store::StoreMut;
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 #[cfg(not(feature = "flat_map_children"))]
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fmt;
 use std::ptr::NonNull;
-use typed_arena::Arena;
 
 ///////////////////////////////////////////////////////////////////////
 // pub types
@@ -16,19 +20,20 @@ use typed_arena::Arena;
 pub struct NodeId(usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InsertError {
+pub enum Error {
     InvalidArg,
     AlreadyExists,
+    NotFound,
 }
 
 pub struct SegmentedTrieSet<const DELIMITER: char> {
     root: Box<Node>,
-    segments: Arena<String>,
+    segments: StringPool,
 }
 
 // --- Public iterators ---
-pub struct Iter<const D: char> {
-    node: Option<*const Node>,
+pub struct Iter<'r, const D: char> {
+    node: Option<&'r Node>,
 }
 
 // pub types
@@ -39,7 +44,7 @@ impl<const DELIMITER: char> Default for SegmentedTrieSet<DELIMITER> {
     fn default() -> Self {
         Self {
             root: Box::new(Node::default()),
-            segments: Arena::new(),
+            segments: StringPool::new(),
         }
     }
 }
@@ -49,65 +54,78 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
         Self::default()
     }
 
-    pub fn iter(&self) -> Iter<DELIMITER> {
+    pub fn iter(&self) -> Iter<'_, DELIMITER> {
         Iter::from_first_leaf(self.root.as_ref())
     }
 
     pub fn contains(&self, key: &str) -> bool {
-        self.get(key).is_some()
+        self.get(key).is_ok()
     }
 
-    pub fn get(&self, key: &str) -> Option<Iter<DELIMITER>> {
+    pub fn get(&self, key: &str) -> Result<Iter<'_, DELIMITER>, Error> {
         self.find_node(key)
-            .filter(|cur| cur.is_leaf)
-            .map(|cur| Iter::from_ptr(cur))
-    }
-
-    pub fn get_by_id(&self, id: NodeId) -> Option<Iter<DELIMITER>> {
-        Node::from(id).map(|p| Iter::from_ptr(p))
-    }
-
-    fn find_node(&self, prefix: &str) -> Option<&Node> {
-        prefix
-          .split(DELIMITER)
-          .filter(|s| !s.is_empty())
-          .fold(Some(&*self.root), |acc, seg| {
-              acc.and_then(|cur| cur.children.get(seg).map(|b| b.as_ref()))
+          .and_then(|cur| if cur.is_leaf {
+              Ok(Iter::from(cur))
+          } else {
+              Err(Error::NotFound)
           })
     }
 
-    pub fn insert(&mut self, key: &str) -> Result<NodeId, InsertError> {
-        if key.is_empty() || key.split(DELIMITER).any(|s| s.is_empty()) {
-            return Err(InsertError::InvalidArg);
+    pub fn get_by_id(&self, id: NodeId) -> Option<Iter<'_, DELIMITER>> {
+        unsafe { Node::from(id).map(|p| Iter::from(p.as_ref())) }
+    }
+
+    pub fn insert(&mut self, key: &str) -> Result<NodeId, Error> {
+        if key.split(DELIMITER)
+          .any(|s| s.is_empty()) {
+            return Err(Error::InvalidArg);
         }
 
         let leaf = key
             .split(DELIMITER)
             .fold(self.root.as_mut(), |cur_node, seg| {
-                let parent = cur_node as *const _;
-                cur_node.children.entry(Key(seg as *const str))
-                  .or_insert_with(|| {
-                      // allocate segment string in arena as a nonmoving String we can reference on
-                      let arena_seg = self.segments.alloc(seg.to_string());
-                      Box::new(Node::new_child(parent, Key(arena_seg.as_str() as *const str)))
-                  })
+                let seg =  self.segments.get_or_insert(seg);
+                let k = Key(seg);
+                let parent = unsafe { NonNull::new_unchecked(cur_node as *mut _) };
+                cur_node.children.entry(k)
+                    .or_insert_with_key(|k| {
+                        // allocate segment string in arena as a nonmoving String we can reference on
+                        Box::new(Node::new_child(parent, k.clone()))
+                    })
         });
 
-        if leaf.is_leaf {
-            return Err(InsertError::AlreadyExists);
+        if !leaf.is_leaf {
+            leaf.is_leaf = true;
+            return Ok(leaf.id());
         }
-        leaf.is_leaf = true;
-        Ok(leaf.id())
+        Err(Error::AlreadyExists)
     }
 
-    pub fn equal_range(&self, prefix: &str) -> (Iter<DELIMITER>, Iter<DELIMITER>) {
-        self.find_node(prefix)
-          .and_then(|cur| {
-              cur.descend().map(|n| {
-                  (Iter::from_ptr(n), Node::first_leaf_of_next_sibling(cur)
-                    .map_or_else(Iter::new, Iter::from_ptr))
-              })
-          }).unwrap_or_else(|| (Iter::new(), Iter::new()))
+    pub fn range(&self, prefix: &str) -> RangeIter<'_, DELIMITER> {
+        let parent = match self.find_node(prefix) {
+            Ok(node) => node,
+            Err(_) => return RangeIter::new(Iter::new(), Iter::new()),
+        };
+        // find the first leaf under this node
+        parent.first_leaf()
+          .map(|n| {
+              let end = match parent.first_leaf_of_next_sibling() {
+                  Some(node) => Iter::from(node),
+                  None => Iter::new(),
+              };
+              RangeIter::new(Iter::from(n), end)
+          })
+          .unwrap_or_else(|| return RangeIter::new(Iter::new(), Iter::new()))
+    }
+
+    fn find_node(&self, prefix: &str) -> Result<&Node, Error> {
+        prefix
+          .split(DELIMITER)
+          .try_fold(self.root.as_ref(), |acc, seg| {
+              acc.children.get(seg)
+                .map(|b| b.as_ref())
+                .ok_or(if seg.is_empty() { Error::InvalidArg } else { Error::NotFound })
+          })
     }
 }
 
@@ -138,13 +156,13 @@ impl Default for Node {
 impl Node {
     // cfg-driven constructor for the concrete map
     #[cfg(feature = "flat_map_children")]
-    fn children_new<K: Ord, V>() -> Children<K, V> { FlatMap::new() }
+    fn children_new<K: Ord, V>() -> Children<K, V> { LiteMap::new() }
     #[cfg(not(feature = "flat_map_children"))]
     fn children_new<K: Ord, V>() -> Children<K, V> { BTreeMap::new() }
 
-    fn new_child(parent: *const Node, key: Key) -> Self {
+    fn new_child(parent: NonNull<Node>, key: Key) -> Self {
         Self {
-            parent: NonNull::new(parent as *mut Node),
+            parent: Some(parent),
             key,
             children: Self::children_new(),
             is_leaf: false,
@@ -152,37 +170,36 @@ impl Node {
     }
 
     fn children_iter(&self) -> impl Iterator<Item = &Node> {
-        self.children.values().map(|b| b.as_ref())
+        self.children.values()
+          .map(|b| b.as_ref())
     }
 
-    fn descend(&self) -> Option<*const Node> {
+    fn first_leaf(&self) -> Option<&Node> {
             self.is_leaf
-              .then_some(self as *const Node)
-              .or_else(|| self.children_iter().find_map(|n| n.descend()))
+              .then_some(self)
+              .or_else(|| self.children_iter().find_map(|n| n.first_leaf()))
     }
 
-    fn first_leaf_of_next_sibling(&self) -> Option<*const Node> {
-        // Use iterator combinators: zip the children iterator with itself.skip(1) and
-        // find the pair where the first element is `cur`, then descend the second.
+    fn first_leaf_of_next_sibling(&self) -> Option<&Node> {
         self.get_parent().and_then(|parent| {
                 parent
                 .children
                 .range(self.key..)
                 .nth(1)
-                .and_then(|(_, child)| child.descend())
+                .and_then(|(_, child)| child.first_leaf())
         })
     }
 
-    fn increment(cur: Option<*const Node>) -> Option<*const Node> {
-        cur.and_then(|p| unsafe {
-            (&*p).children_iter()
+    fn next_leaf(cur: Option<&Node>) -> Option<&Node> {
+        cur.and_then(|p|
+            p.children_iter()
             .next()
-            .and_then(|child| child.descend())
-            .or_else(|| { // Otherwise, walk up to find next sibling subtree
-                std::iter::successors(cur, |&n| (&*n).parent.map(|nn| nn.as_ptr() as *const _) )
-                    .find_map(|n| (&*n).first_leaf_of_next_sibling())
-            })
-        })
+            .and_then(|child| child.first_leaf())
+            .or_else(|| // Otherwise, walk up to find next sibling subtree
+                std::iter::successors(cur, |&n| n.get_parent())
+                    .find_map(|n| n.first_leaf_of_next_sibling())
+            )
+        )
     }
 
     fn is_root(&self) -> bool {
@@ -196,8 +213,8 @@ impl Node {
         NodeId(self as *const Node as usize)
     }
 
-    fn from(id: NodeId) -> Option<*const Node> {
-        (id.0 != 0).then_some(id.0 as *const Node)
+    fn from(id: NodeId) -> Option<NonNull<Node>> {
+        NonNull::new(id.0 as *mut Node)
     }
 
     fn key(&self, d: char) -> Option<String> {
@@ -214,32 +231,30 @@ impl Node {
     }
 }
 
-impl<const D: char> Iter<D> {
+impl<'r, const D: char> Iter<'r, D> {
     pub fn id(&self) -> NodeId {
-        NodeId(self.node.map_or(0, |p| p as usize))
+        self.node.map_or(NodeId(0), |p| p.id())
     }
 
     pub fn key(&self) -> Option<String> {
-        self.node.and_then(|p| unsafe {
-            (&*p).key(D)
-        })
+        self.node.and_then(|p| p.key(D))
     }
 
     fn new() -> Self {
         Self { node: None }
     }
 
-    fn from_ptr(ptr: *const Node) -> Self {
+    fn from(node: &'r Node) -> Self {
         // ensure we always have a valid ptr or None!
-        Self { node: (!ptr.is_null()).then_some(ptr) }
+        Self { node: Some(node) }
     }
 
-    fn from_first_leaf(node: &Node) -> Self {
-        Self { node: node.descend() }
+    fn from_first_leaf(node: &'r Node) -> Self {
+        Self { node: node.first_leaf() }
     }
 }
 
-impl<const D: char> fmt::Debug for Iter<D> {
+impl<'r, const D: char> fmt::Debug for Iter<'r, D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(k) = self.key() {
             write!(f, "Iter({k})")
@@ -249,15 +264,15 @@ impl<const D: char> fmt::Debug for Iter<D> {
     }
 }
 
-impl<const D: char> PartialEq for Iter<D> {
+impl<'r, const D: char> PartialEq for Iter<'r, D> {
     fn eq(&self, other: &Self) -> bool {
-        self.node == other.node
+        self.node.map(|p| p as *const _) == other.node.map(|p| p as *const _)
     }
 }
 
-impl<const D: char> Eq for Iter<D> {}
+impl<'r, const D: char> Eq for Iter<'r, D> {}
 
-impl<const D: char> Iterator for Iter<D> {
+impl<'r, const D: char> Iterator for Iter<'r, D> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -265,17 +280,38 @@ impl<const D: char> Iterator for Iter<D> {
             return None;
         }
         let key = self.key();
-        self.node = Node::increment(self.node);
+        self.node = Node::next_leaf(self.node);
         key
     }
 }
 
-impl<const DELIMITER: char> IntoIterator for &SegmentedTrieSet<DELIMITER> {
+impl<'a, const DELIMITER: char> IntoIterator for &'a SegmentedTrieSet<DELIMITER> {
     type Item = String;
-    type IntoIter = Iter<DELIMITER>;
+    type IntoIter = Iter<'a, DELIMITER>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+pub struct RangeIter<'a, const DELIMITER: char> {
+    current: Iter<'a, DELIMITER>, // your tree iterator type
+    end: Iter<'a, DELIMITER>,     // sentinel end position
+}
+
+impl<'a, const DELIMITER: char> RangeIter<'a, DELIMITER> {
+    pub fn new(start: Iter<'a, DELIMITER>, end: Iter<'a, DELIMITER>) -> Self {
+        RangeIter { current: start, end }
+    }
+}
+impl<'a, const DELIMITER: char> Iterator for RangeIter<'a, DELIMITER> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current == self.end {
+            return None;
+        }
+        self.current.next()
     }
 }
 
@@ -322,10 +358,94 @@ impl Borrow<str> for Key {
     }
 }
 
+struct StringPool {
+    strings: BTreeSet<String>, // values unused
+}
+
+impl StringPool {
+    fn new() -> Self {
+        Self { strings: BTreeSet::new() }
+    }
+
+    fn get_or_insert(&mut self, s: &str) -> &str {
+        // very bad, needs 3 lookups, find a better way
+        // Entry API ensures only one lookup
+        if self.strings.contains(s) {
+            return self.strings.get(s).unwrap();
+        }
+        self.strings.insert(s.to_string());
+        self.strings.get(s).unwrap()
+    }
+}
+
 // cfg-driven children map type: FlatMap when feature "flat_map_children" is enabled,
 // otherwise BTreeMap.
 #[cfg(feature = "flat_map_children")]
-type Children<K, V> = FlatMap<K, V>;
+type Children<K, V> = LiteMap<K, V, SplitStore<K, V>>;
+
+#[cfg(feature = "flat_map_children")]
+struct SplitStore<K, V> {
+    keys: Vec<K>,
+    values: Vec<V>,
+}
+
+#[cfg(feature = "flat_map_children")]
+impl<K: Ord, V> Store<K, V> for SplitStore<K, V> {
+    fn lm_len(&self) -> usize {
+        self.keys.len()
+    }
+
+    fn lm_get(&self, index: usize) -> Option<(&K, &V)> {
+        self.keys.get(index).zip(self.values.get(index))
+    }
+
+    fn lm_binary_search_by<F>(&self, cmp: F) -> Result<usize, usize>
+    where
+      F: FnMut(&K) -> Ordering {
+        self.keys.binary_search_by(cmp)
+    }
+}
+
+#[cfg(feature = "flat_map_children")]
+impl<K: Ord, V> StoreMut<K, V> for SplitStore<K, V> {
+    fn lm_with_capacity(capacity: usize) -> Self {
+        Self {
+            keys: Vec::with_capacity(capacity),
+            values: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn lm_reserve(&mut self, additional: usize) {
+        self.keys.reserve(additional);
+        self.values.reserve(additional);
+    }
+
+    fn lm_get_mut(&mut self, index: usize) -> Option<(&K, &mut V)> {
+        self.keys.get(index).zip(self.values.get_mut(index))
+    }
+
+    fn lm_push(&mut self, key: K, value: V) {
+        self.keys.push(key);
+        self.values.push(value);
+    }
+
+    fn lm_insert(&mut self, index: usize, key: K, value: V) {
+        self.keys.insert(index, key);
+        self.values.insert(index, value);
+    }
+
+    fn lm_remove(&mut self, index: usize) -> (K, V) {
+        let k = self.keys.remove(index);
+        let v = self.values.remove(index);
+        (k, v)
+    }
+
+    fn lm_clear(&mut self) {
+        self.keys.clear();
+        self.values.clear();
+    }
+}
+
 #[cfg(not(feature = "flat_map_children"))]
 type Children<K, V> = BTreeMap<K, V>;
 
@@ -369,15 +489,10 @@ fn cfg_out() { println!("flat_map_children feature is NOT enabled"); }
     fn equal_range_prefix_collects_expected() {
         let mut trie = SegmentedTrieSet::<'.'>::new();
         ["a.b.1", "a.b.2", "a.c.1", "a.b.4", "a.b.3", "a.b.3.1", "a.c.2", "z"]
-          .into_iter()
-          .for_each(|key| { let _ = trie.insert(key); });
+            .into_iter()
+            .for_each(|key| { let _ = trie.insert(key); });
 
-        let (mut begin, end) = trie.equal_range("a.b");
-        let seen: Vec<String> = std::iter::from_fn(|| (begin != end)
-            .then_some(())
-            .and_then(|_| begin.next()))
-            .collect();
-
+        let seen: Vec<String> = trie.range("a.b").collect();
         assert_eq!(seen, vec!["a.b.1".to_string(), "a.b.2".to_string(), "a.b.3".to_string(), "a.b.3.1".to_string(), "a.b.4".to_string()]);
     }
 
@@ -401,16 +516,16 @@ fn cfg_out() { println!("flat_map_children feature is NOT enabled"); }
     #[test]
     fn insert_rejects_empty_segments() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
-        assert_eq!(trie.insert("/a"), Err(InsertError::InvalidArg));
-        assert_eq!(trie.insert("a//b"), Err(InsertError::InvalidArg));
-        assert_eq!(trie.insert("trail/"), Err(InsertError::InvalidArg));
-        assert_eq!(trie.insert("").err(), Some(InsertError::InvalidArg));
+        assert_eq!(trie.insert("/a"), Err(Error::InvalidArg));
+        assert_eq!(trie.insert("a//b"), Err(Error::InvalidArg));
+        assert_eq!(trie.insert("trail/"), Err(Error::InvalidArg));
+        assert_eq!(trie.insert("").err(), Some(Error::InvalidArg));
     }
 
     #[test]
     fn insert_same_key_twice_errors() {
         let mut trie = SegmentedTrieSet::<'/'>::new();
         assert!(trie.insert("a/b").is_ok());
-        assert_eq!(trie.insert("a/b"), Err(InsertError::AlreadyExists));
+        assert_eq!(trie.insert("a/b"), Err(Error::AlreadyExists));
     }
 }

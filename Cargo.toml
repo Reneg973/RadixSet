@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 flat_map = "0.0.10"
-typed-arena = "2.0.2"
+litemap = "0.8.1"
 
 [dev-dependencies]
 criterion = "0.8.0"
