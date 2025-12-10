@@ -5,6 +5,7 @@ use litemap::store::Store;
 #[cfg(feature = "flat_map_children")]
 use litemap::store::StoreMut;
 
+use std::ops::Deref;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 #[cfg(not(feature = "flat_map_children"))]
@@ -27,8 +28,8 @@ pub enum Error {
 }
 
 pub struct SegmentedTrieSet<const DELIMITER: char> {
-    root: Box<Node>,
     segments: StringPool,
+    root: Box<Node>, // ensure this is dropped first
 }
 
 // --- Public iterators ---
@@ -85,12 +86,11 @@ impl<const DELIMITER: char> SegmentedTrieSet<DELIMITER> {
             .split(DELIMITER)
             .fold(self.root.as_mut(), |cur_node, seg| {
                 let seg =  self.segments.get_or_insert(seg);
-                let k = Key(seg);
-                let parent = unsafe { NonNull::new_unchecked(cur_node as *mut _) };
-                cur_node.children.entry(k)
+                let parent = NonNull::from_ref(cur_node);
+                cur_node.children.entry(Key(NonNull::from(seg)))
                     .or_insert_with_key(|k| {
                         // allocate segment string in arena as a nonmoving String we can reference on
-                        Box::new(Node::new_child(parent, k.clone()))
+                        Box::new(Node::new_child(parent, k))
                     })
         });
 
@@ -147,7 +147,7 @@ impl Default for Node {
     fn default() -> Self {
         Self {
             parent: None,
-            key: Key::from_static(""),
+            key: Key::from_ref(""),
             children: Self::children_new(),
             is_leaf: false,
         }
@@ -160,10 +160,10 @@ impl Node {
     #[cfg(not(feature = "flat_map_children"))]
     fn children_new<K: Ord, V>() -> Children<K, V> { BTreeMap::new() }
 
-    fn new_child(parent: NonNull<Node>, key: Key) -> Self {
+    fn new_child(parent: NonNull<Node>, key: &Key) -> Self {
         Self {
             parent: Some(parent),
-            key,
+            key: key.clone(),
             children: Self::children_new(),
             is_leaf: false,
         }
@@ -221,7 +221,7 @@ impl Node {
         // Reconstruct by walking parents
         let mut parts: Vec<&str> = std::iter::successors(Some(self), |&p| p.get_parent() )
             .take_while(|&p| !p.is_root() )
-            .map(|p| p.key.as_str() )
+            .map(|p| p.key.deref() )
             .collect();
         (!parts.is_empty()).then_some({
             parts.reverse();
@@ -316,45 +316,48 @@ impl<'a, const DELIMITER: char> Iterator for RangeIter<'a, DELIMITER> {
 }
 
 #[derive(Clone, Copy)]
-struct Key(*const str);
+struct Key(NonNull<str>);
 
 impl Key {
-    fn as_str(&self) -> &str {
-        unsafe { &*self.0 }
+    fn from_ref(s: &str) -> Self {
+        Key(NonNull::from(s))
     }
+}
 
-    const fn from_static(s: &'static str) -> Self {
-        Key(s as *const str)
+impl Deref for Key {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.0.as_ref() }
     }
 }
 
 impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.as_str())
+        write!(f, "{:?}", self.deref())
     }
 }
 
 impl PartialEq for Key {
     fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
+        self.0.addr() == other.0.addr()
     }
 }
 impl Eq for Key {}
 impl PartialOrd for Key {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.as_str().cmp(other.as_str()))
+        Some(self.deref().cmp(other.deref()))
     }
 }
 impl Ord for Key {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.as_str().cmp(other.as_str())
+        self.deref().cmp(other.deref())
     }
 }
 
 // Allow Map lookups by &str.
 impl Borrow<str> for Key {
     fn borrow(&self) -> &str {
-        self.as_str()
+        self.deref()
     }
 }
 
